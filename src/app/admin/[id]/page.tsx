@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { toast } from '@/hooks/use-toast'
+import { authFetch } from '@/lib/client-auth'
 import { QrDialog } from '@/components/aulaviva/qr-dialog'
 import { LiveTab } from '@/components/aulaviva/live-tab'
 import { QuestionsTab } from '@/components/aulaviva/questions-tab'
@@ -59,14 +60,14 @@ export default function AdminSessionPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(`/api/sessions/${sessionId}/live`, {
+        const res = await authFetch(`/api/sessions/${sessionId}/live`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
         })
         if (cancelled) return
         if (res.ok) {
-          setAuthState('ok') // autorizado por la cookie del docente
+          setAuthState('ok') // autorizado por la cookie o el token Bearer del docente
         } else {
           setAuthState('need-code')
         }
@@ -82,7 +83,7 @@ export default function AdminSessionPage() {
   const refresh = useCallback(async () => {
     if (!sessionId || authState !== 'ok') return
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/live`, {
+      const res = await authFetch(`/api/sessions/${sessionId}/live`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(adminCode ? { 'x-admin-code': adminCode } : {}) },
         body: JSON.stringify(adminCode ? { adminCode } : {}),
@@ -110,7 +111,7 @@ export default function AdminSessionPage() {
     e.preventDefault()
     const code = codeInput.trim().toUpperCase()
     if (!code || !sessionId) return
-    const res = await fetch(`/api/sessions/${sessionId}/live`, {
+    const res = await authFetch(`/api/sessions/${sessionId}/live`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminCode: code }),
@@ -167,7 +168,7 @@ export default function AdminSessionPage() {
   async function setQuestionState(q: QuestionAdmin, state: 'open' | 'revealed' | 'closed') {
     setBusyQuestion(q.id)
     try {
-      const res = await fetch(`/api/questions/${q.id}`, {
+      const res = await authFetch(`/api/questions/${q.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode || '' },
         body: JSON.stringify({ state }),
@@ -186,7 +187,7 @@ export default function AdminSessionPage() {
 
   async function createQuestion(type: QuestionType, draft: EditorDraft): Promise<boolean> {
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/questions`, {
+      const res = await authFetch(`/api/sessions/${sessionId}/questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode || '' },
         body: JSON.stringify({
@@ -214,7 +215,7 @@ export default function AdminSessionPage() {
 
   async function updateQuestion(q: QuestionAdmin, draft: EditorDraft): Promise<boolean> {
     try {
-      const res = await fetch(`/api/questions/${q.id}`, {
+      const res = await authFetch(`/api/questions/${q.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode || '' },
         body: JSON.stringify({
@@ -241,7 +242,7 @@ export default function AdminSessionPage() {
 
   async function deleteQuestion(q: QuestionAdmin) {
     try {
-      const res = await fetch(`/api/questions/${q.id}`, {
+      const res = await authFetch(`/api/questions/${q.id}`, {
         method: 'DELETE',
         headers: { 'x-admin-code': adminCode || '' },
       })
@@ -257,7 +258,7 @@ export default function AdminSessionPage() {
   }
 
   async function reorder(ids: string[]) {
-    await fetch(`/api/sessions/${sessionId}/manage`, {
+    await authFetch(`/api/sessions/${sessionId}/manage`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode || '' },
       body: JSON.stringify({ questionOrder: ids }),
@@ -268,7 +269,7 @@ export default function AdminSessionPage() {
   async function kickParticipant(id: string, name: string) {
     if (!confirm(`¿Eliminar a ${name} de la sesión? Sus respuestas también se borrarán.`)) return
     try {
-      await fetch(`/api/participants/${id}`, {
+      await authFetch(`/api/participants/${id}`, {
         method: 'DELETE',
         headers: { 'x-admin-code': adminCode || '' },
       })
@@ -283,7 +284,7 @@ export default function AdminSessionPage() {
     if (busyRef.current) return
     busyRef.current = true
     try {
-      await fetch(`/api/sessions/${sessionId}/manage`, {
+      await authFetch(`/api/sessions/${sessionId}/manage`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode || '' },
         body: JSON.stringify({ status }),
@@ -295,7 +296,7 @@ export default function AdminSessionPage() {
   }
 
   async function saveSettings() {
-    await fetch(`/api/sessions/${sessionId}/manage`, {
+    await authFetch(`/api/sessions/${sessionId}/manage`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode || '' },
       body: JSON.stringify({ title: editTitle, maxParticipants: editMax }),

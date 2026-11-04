@@ -2,7 +2,7 @@
 // firmada (HMAC-SHA256) guardada en una cookie httpOnly.
 // Los participantes no usan login: entran con el código o QR de la sesión.
 import { scryptSync, randomBytes, timingSafeEqual, createHmac } from 'crypto'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { db } from '@/lib/db'
 
 export const SESSION_COOKIE = 'aulaviva_session'
@@ -126,6 +126,22 @@ export const SESSION_COOKIE_OPTIONS = {
 
 export type TeacherRole = 'ADMIN' | 'DOCENTE' | 'MODERADOR'
 
+/*
+ * La sesión se resuelve con DOBLE mecanismo para que nunca se cierre sola:
+ *  1. Cookie httpOnly (vía segura normal).
+ *  2. Cabecera Authorization: Bearer <token> guardada en localStorage.
+ * El respaldo Bearer es imprescindible cuando la plataforma se abre dentro de
+ * un iframe de otro dominio (vista previa): los navegadores bloquean las
+ * cookies de terceros y la cookie nunca se guarda, lo que desconectaba al
+ * docente justo después de iniciar sesión. El token firmado es idéntico al de
+ * la cookie y tiene la misma vigencia (30 días).
+ */
+function bearerToken(authHeader: string | null | undefined): string | null {
+  if (!authHeader) return null
+  const match = authHeader.match(/^Bearer\s+(.+)$/i)
+  return match ? match[1].trim() : null
+}
+
 export async function getAuthTeacher(): Promise<{
   id: string
   email: string
@@ -133,7 +149,10 @@ export async function getAuthTeacher(): Promise<{
   role: TeacherRole
 } | null> {
   const store = await cookies()
-  const payload = verifyToken(store.get(SESSION_COOKIE)?.value)
+  const hdrs = await headers()
+  const token =
+    store.get(SESSION_COOKIE)?.value || bearerToken(hdrs.get('authorization'))
+  const payload = verifyToken(token)
   if (!payload) return null
   const teacher = await db.teacher.findUnique({
     where: { id: payload.sub },

@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BrandLogo } from '@/components/aulaviva/brand-logo'
+import { authFetch, saveAuthToken, clearAuthToken } from '@/lib/client-auth'
 import { toast } from '@/hooks/use-toast'
 import {
   Presentation,
@@ -86,7 +87,7 @@ export default function AdminPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch('/api/auth/me', { cache: 'no-store' })
+        const res = await authFetch('/api/auth/me')
         const data = res.ok ? await res.json() : null
         if (!cancelled) {
           setTeacher(data?.teacher ?? null)
@@ -102,7 +103,8 @@ export default function AdminPage() {
   }, [])
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
+    clearAuthToken()
+    await authFetch('/api/auth/logout', { method: 'POST' })
     setTeacher(null)
     setView('login')
     toast({ title: 'Sesión cerrada' })
@@ -149,6 +151,10 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
         toast({ title: data.error || 'No se pudo iniciar sesión', variant: 'destructive' })
         return
       }
+      // Respaldo de sesión en localStorage: si el navegador bloquea las
+      // cookies de terceros (iframe de vista previa), el token Bearer
+      // mantiene la sesión abierta al recargar o navegar.
+      if (data.token) saveAuthToken(data.token)
       toast({ title: `¡Hola de nuevo, ${data.teacher.name}!` })
       onLoggedIn(data.teacher)
     } catch {
@@ -164,8 +170,10 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
       <aside className="relative lg:w-[46%] bg-carbon-950 text-white overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(0,102,255,0.35),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(0,204,136,0.16),transparent_50%)]" aria-hidden />
         <div className="relative h-full flex flex-col justify-between p-8 lg:p-12 gap-10">
-          <div className="bg-white rounded-xl inline-flex items-center px-3 py-2 self-start shadow-lg">
-            <BrandLogo className="h-10 w-auto" dark />
+          {/* Logo blanco directamente sobre el fondo oscuro: contrasta solo,
+              sin caja blanca (la variante dark ya es blanca) */}
+          <div className="self-start">
+            <BrandLogo className="h-12 w-auto" dark />
           </div>
 
           <div className="space-y-6 max-w-md">
@@ -295,9 +303,7 @@ function Dashboard({
       <header className="sticky top-0 z-20 border-b bg-carbon-950 text-white">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="bg-white rounded-lg px-2 py-1 shrink-0">
-              <BrandLogo className="h-7 w-auto" dark />
-            </div>
+            <BrandLogo className="h-8 w-auto shrink-0" dark />
             <div className="min-w-0 border-l border-white/15 pl-3">
               <p className="font-bold leading-none">Panel docente</p>
               <p className="text-xs text-slate-300 truncate">Transform Acción 720</p>
@@ -369,9 +375,10 @@ function SessionsList({
 
   const loadSessions = useCallback(async () => {
     try {
-      const res = await fetch('/api/sessions', { cache: 'no-store' })
+      const res = await authFetch('/api/sessions')
       if (res.status === 401) {
-        await fetch('/api/auth/logout', { method: 'POST' })
+        clearAuthToken()
+        await authFetch('/api/auth/logout', { method: 'POST' })
         window.location.reload()
         return
       }
@@ -389,7 +396,7 @@ function SessionsList({
   async function createDemo() {
     setDemoBusy(true)
     try {
-      const res = await fetch('/api/demo', { method: 'POST' })
+      const res = await authFetch('/api/demo', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error')
       toast({ title: 'Demo creada', description: 'Explora los 6 tipos de preguntas.' })
@@ -406,7 +413,7 @@ function SessionsList({
     if (!code) return
     setLegacyBusy(true)
     try {
-      const res = await fetch('/api/sessions/lookup', {
+      const res = await authFetch('/api/sessions/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminCode: code }),
@@ -547,7 +554,7 @@ function NewSessionCard() {
     }
     setCreating(true)
     try {
-      const res = await fetch('/api/sessions', {
+      const res = await authFetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, description, maxParticipants: max }),
@@ -636,7 +643,7 @@ function UsersAdmin() {
 
   const loadUsers = useCallback(async () => {
     try {
-      const res = await fetch('/api/users', { cache: 'no-store' })
+      const res = await authFetch('/api/users')
       if (!res.ok) {
         setUsers([])
         return
@@ -664,7 +671,7 @@ function UsersAdmin() {
     }
     setBusy(true)
     try {
-      const res = await fetch('/api/users', {
+      const res = await authFetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, role }),
@@ -694,7 +701,7 @@ function UsersAdmin() {
       toast({ title: 'La contraseña debe tener al menos 6 caracteres', variant: 'destructive' })
       return
     }
-    const res = await fetch(`/api/users/${u.id}`, {
+    const res = await authFetch(`/api/users/${u.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: next }),
@@ -708,7 +715,7 @@ function UsersAdmin() {
   }
 
   async function changeRole(u: UserRow, newRole: string) {
-    const res = await fetch(`/api/users/${u.id}`, {
+    const res = await authFetch(`/api/users/${u.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: newRole }),
@@ -724,7 +731,7 @@ function UsersAdmin() {
 
   async function removeUser(u: UserRow) {
     if (!window.confirm(`¿Eliminar la cuenta de ${u.email}? Sus sesiones quedarán sin dueño.`)) return
-    const res = await fetch(`/api/users/${u.id}`, { method: 'DELETE' })
+    const res = await authFetch(`/api/users/${u.id}`, { method: 'DELETE' })
     const data = await res.json()
     if (!res.ok) {
       toast({ title: data.error || 'No se pudo eliminar', variant: 'destructive' })

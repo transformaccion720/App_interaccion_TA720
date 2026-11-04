@@ -20,8 +20,14 @@ export async function POST(req: Request) {
       return jsonError('Correo o contraseña incorrectos', 401)
     }
 
+    const token = createSessionToken(teacher)
+
     const res = Response.json({
       ok: true,
+      // Token también en el cuerpo: el cliente lo guarda en localStorage y lo
+      // envía como Bearer cuando las cookies de terceros están bloqueadas
+      // (p. ej. dentro de un iframe de vista previa). Así la sesión no se cae.
+      token,
       teacher: {
         id: teacher.id,
         email: teacher.email,
@@ -31,7 +37,7 @@ export async function POST(req: Request) {
     })
     const headers = new Headers(res.headers)
     // Cookie con SameSite=None+Secure en HTTPS (funciona en iframes embebidos)
-    headers.append('Set-Cookie', sessionCookieString(req, createSessionToken(teacher)))
+    headers.append('Set-Cookie', sessionCookieString(req, token))
     return new Response(res.body, { status: 200, headers })
   } catch (err) {
     console.error('[login] error:', err)
