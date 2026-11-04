@@ -4,6 +4,9 @@
 // del administrador y la vista de resultados revelada a los participantes.
 import type {
   DecisionTreeResults,
+  DiagnosticoConfig,
+  DiagnosticoResults,
+  DiagPromptResult,
   MultipleChoiceConfig,
   MultipleChoiceResults,
   OpenTextConfig,
@@ -15,7 +18,9 @@ import type {
 } from '@/lib/types'
 import { WordCloud } from './word-cloud'
 import { relativeTime } from '@/lib/codes'
-import { CheckCircle2, XCircle, CircleDashed, MessageSquareText } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { CheckCircle2, XCircle, CircleDashed, MessageSquareText, ChevronUp, ChevronDown, BarChart3 } from 'lucide-react'
+import { useState } from 'react'
 
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0
@@ -58,6 +63,8 @@ export function ResultsView({
       return <DecisionResultsView data={results.data} />
     case 'open_text':
       return <OpenTextResultsView data={results.data} config={config as OpenTextConfig} />
+    case 'diagnostico':
+      return <DiagnosticoResultsView data={results.data} config={config as DiagnosticoConfig} />
   }
 }
 
@@ -263,4 +270,176 @@ export function SemaforoLight({ vote }: { vote: 'valid' | 'partial' | 'invalid' 
   if (vote === 'partial') return <CircleDashed className="h-4 w-4 text-amber-500" />
   if (vote === 'invalid') return <XCircle className="h-4 w-4 text-red-500" />
   return <CircleDashed className="h-4 w-4 text-muted-foreground" />
+}
+
+// ------------------- Diagnóstico situacional -------------------
+// Los gráficos se adaptan a la cantidad de respuestas: con pocas se muestran
+// las respuestas individuales; a medida que crecen aparecen los agregados
+// (barras de distribución, promedio y palabras clave).
+
+const CHART_BARS = ['bg-teal-500', 'bg-teal-400', 'bg-amber-500', 'bg-slate-400', 'bg-teal-600']
+
+function DiagnosticoResultsView({
+  data,
+  config,
+}: {
+  data: DiagnosticoResults
+  config: DiagnosticoConfig
+}) {
+  const prompts = config?.prompts || []
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        {data.total} {data.total === 1 ? 'participante respondió' : 'participantes respondieron'} el diagnóstico
+        {data.total >= 4 ? ' · con 4 o más respuestas se priorizan los gráficos resumidos' : ''}
+      </p>
+      {prompts.map((prompt, i) => {
+        const r = data.prompts.find((p) => p.promptId === prompt.id)
+        if (!r) return null
+        return <DiagPromptResults key={prompt.id} index={i + 1} label={prompt.label} result={r} />
+      })}
+    </div>
+  )
+}
+
+function DiagPromptResults({
+  index,
+  label,
+  result,
+}: {
+  index: number
+  label: string
+  result: DiagPromptResult
+}) {
+  return (
+    <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold leading-snug">
+          <span className="text-muted-foreground mr-1.5">{index}.</span>
+          {label}
+        </p>
+        <Badge variant="secondary" className="shrink-0">
+          {result.kind === 'text' ? 'Texto libre' : result.kind === 'choice' ? 'Opciones' : 'Escala 1-5'}
+          {' · '}
+          {result.total} resp.
+        </Badge>
+      </div>
+      {result.kind === 'choice' && <DiagChoiceResults result={result} />}
+      {result.kind === 'scale' && <DiagScaleResults result={result} />}
+      {result.kind === 'text' && <DiagTextResults result={result} />}
+    </div>
+  )
+}
+
+function DiagChoiceResults({ result }: { result: Extract<DiagPromptResult, { kind: 'choice' }> }) {
+  const entries = Object.entries(result.counts)
+  const max = Math.max(1, ...entries.map(([, n]) => n))
+  return (
+    <div className="space-y-2">
+      {entries.map(([label, count], i) => {
+        const pct = result.total > 0 ? Math.round((count / result.total) * 100) : 0
+        return (
+          <div key={i} className="space-y-1">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="font-medium">{label}</span>
+              <span className="text-muted-foreground tabular-nums shrink-0">
+                {result.total >= 5 ? `${pct}% · ` : ''}{count}
+              </span>
+            </div>
+            <Bar value={count} max={max} color={CHART_BARS[i % CHART_BARS.length]} />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function DiagScaleResults({ result }: { result: Extract<DiagPromptResult, { kind: 'scale' }> }) {
+  const max = Math.max(1, ...[1, 2, 3, 4, 5].map((n) => result.counts[String(n)] || 0))
+  return (
+    <div className="flex flex-wrap items-center gap-5">
+      <div className="flex h-28 items-end gap-2" aria-label="Distribución de la escala">
+        {[1, 2, 3, 4, 5].map((n) => {
+          const count = result.counts[String(n)] || 0
+          const pct = (count / max) * 100
+          return (
+            <div key={n} className="flex w-9 flex-col items-center gap-1">
+              <span className="text-xs font-semibold tabular-nums text-muted-foreground">{count}</span>
+              <div className="flex h-16 w-full items-end rounded-md bg-muted overflow-hidden">
+                <div
+                  className={`w-full rounded-md ${n >= 4 ? 'bg-emerald-500' : n === 3 ? 'bg-amber-500' : 'bg-red-400'} transition-all duration-500`}
+                  style={{ height: `${Math.max(count > 0 ? 12 : 0, pct)}%` }}
+                  title={`${n} estrella${n === 1 ? '' : 's'}: ${count}`}
+                />
+              </div>
+              <span className="text-xs font-bold text-muted-foreground">{n}</span>
+            </div>
+          )
+        })}
+      </div>
+      <div className="rounded-xl border bg-card px-5 py-3 text-center">
+        <p className="text-xs text-muted-foreground">Promedio del grupo</p>
+        <p className="text-3xl font-extrabold text-primary tabular-nums leading-tight">
+          {result.average.toFixed(1)}
+          <span className="text-base font-semibold text-muted-foreground"> / 5</span>
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function DiagTextResults({ result }: { result: Extract<DiagPromptResult, { kind: 'text' }> }) {
+  // Adaptativo: con 4+ respuestas se muestran primero las palabras clave;
+  // con menos, directamente las respuestas individuales.
+  const showKeywordsFirst = result.items.length >= 4 && result.keywords.length >= 3
+  const [listOpen, setListOpen] = useState(!showKeywordsFirst)
+
+  return (
+    <div className="space-y-3">
+      {showKeywordsFirst && (
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" /> Palabras más repetidas
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {result.keywords.slice(0, 12).map((k) => (
+              <span
+                key={k.word}
+                className="rounded-full bg-teal-50 border border-teal-200 px-2.5 py-0.5 text-teal-900"
+                style={{ fontSize: `${Math.min(1, k.count / Math.max(1, result.keywords[0].count)) * 8 + 12}px`, fontWeight: k.count >= 3 ? 700 : 500 }}
+                title={`${k.count} menciones`}
+              >
+                {k.word}
+                {k.count > 1 && <sub className="text-[9px] text-muted-foreground ml-0.5">{k.count}</sub>}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setListOpen(!listOpen)}
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+        aria-expanded={listOpen}
+      >
+        {listOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        {listOpen ? 'Ocultar respuestas individuales' : `Ver respuestas individuales (${result.items.length})`}
+      </button>
+
+      {listOpen && (
+        <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+          {result.items.map((item, i) => (
+            <div key={i} className="rounded-lg border bg-card p-3 text-sm">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="font-medium">{item.participant}</span>
+                <span className="text-xs text-muted-foreground">{relativeTime(item.at)}</span>
+              </div>
+              <p className="leading-snug break-words">{item.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }

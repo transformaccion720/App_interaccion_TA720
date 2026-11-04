@@ -6,6 +6,7 @@ export type QuestionType =
   | 'word_cloud'
   | 'decision_tree'
   | 'open_text'
+  | 'diagnostico'
 
 export type QuestionState = 'pending' | 'open' | 'revealed' | 'closed'
 export type SessionStatus = 'draft' | 'live' | 'closed'
@@ -16,6 +17,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   word_cloud: 'Nube de palabras',
   decision_tree: 'Árbol de decisiones',
   open_text: 'Pregunta abierta',
+  diagnostico: 'Diagnóstico situacional',
 }
 
 export const QUESTION_TYPE_ICONS: Record<QuestionType, string> = {
@@ -24,6 +26,7 @@ export const QUESTION_TYPE_ICONS: Record<QuestionType, string> = {
   word_cloud: '☁',
   decision_tree: '🌳',
   open_text: '✎',
+  diagnostico: '📋',
 }
 
 // ---------- Configuraciones por tipo ----------
@@ -77,12 +80,32 @@ export interface OpenTextConfig {
   maxLength: number
 }
 
+// ---------- Diagnóstico situacional (bloque de preguntas mixtas) ----------
+
+export type DiagInputType = 'text' | 'choice' | 'scale'
+
+export interface DiagPrompt {
+  id: string
+  label: string
+  inputType: DiagInputType
+  options?: string[] // para inputType === 'choice'
+  minLabel?: string // escala: etiqueta del 1
+  maxLabel?: string // escala: etiqueta del 5
+  maxLength?: number // para text
+  placeholder?: string // para text
+}
+
+export interface DiagnosticoConfig {
+  prompts: DiagPrompt[]
+}
+
 export type QuestionConfig =
   | MultipleChoiceConfig
   | SemaforoConfig
   | WordCloudConfig
   | DecisionTreeConfig
   | OpenTextConfig
+  | DiagnosticoConfig
 
 // ---------- Cargas útiles de respuestas ----------
 
@@ -111,6 +134,10 @@ export interface DecisionTreeAnswer {
 
 export interface OpenTextAnswer {
   text: string
+}
+
+export interface DiagnosticoAnswer {
+  values: Record<string, string> // promptId → respuesta (escala: "1"…"5")
 }
 
 // ---------- Vistas serializadas para el cliente ----------
@@ -193,12 +220,45 @@ export interface OpenTextResults {
   items: { participant: string; text: string; at: string }[]
 }
 
+// ---------- Resultados del diagnóstico (por sub-pregunta) ----------
+
+export interface DiagTextResult {
+  promptId: string
+  kind: 'text'
+  total: number
+  items: { participant: string; text: string; at: string }[]
+  keywords: { word: string; count: number }[]
+}
+
+export interface DiagChoiceResult {
+  promptId: string
+  kind: 'choice'
+  total: number
+  counts: Record<string, number> // etiqueta de la opción → votos
+}
+
+export interface DiagScaleResult {
+  promptId: string
+  kind: 'scale'
+  total: number
+  counts: Record<string, number> // "1"…"5"
+  average: number // promedio con 1 decimal
+}
+
+export type DiagPromptResult = DiagTextResult | DiagChoiceResult | DiagScaleResult
+
+export interface DiagnosticoResults {
+  total: number
+  prompts: DiagPromptResult[]
+}
+
 export type QuestionResults =
   | { type: 'multiple_choice'; data: MultipleChoiceResults }
   | { type: 'semaforo'; data: SemaforoResults }
   | { type: 'word_cloud'; data: WordCloudResults }
   | { type: 'decision_tree'; data: DecisionTreeResults }
   | { type: 'open_text'; data: OpenTextResults }
+  | { type: 'diagnostico'; data: DiagnosticoResults }
 
 export interface AdminLive {
   session: {
@@ -229,7 +289,14 @@ export interface ParticipantSync {
   participantName: string
   question: QuestionPublic | null
   config: QuestionConfig | null // para pintar la pregunta
-  myAnswer: MultipleChoiceAnswer | SemaforoAnswer | WordCloudAnswer | DecisionTreeAnswer | OpenTextAnswer | null
+  myAnswer:
+    | MultipleChoiceAnswer
+    | SemaforoAnswer
+    | WordCloudAnswer
+    | DecisionTreeAnswer
+    | OpenTextAnswer
+    | DiagnosticoAnswer
+    | null
   results: QuestionResults | null // solo si state === 'revealed'
   answeredCount: number
   totalParticipants: number

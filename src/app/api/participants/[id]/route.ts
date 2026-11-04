@@ -13,7 +13,7 @@ export async function DELETE(
   const participant = await db.participant.findUnique({ where: { id } })
   if (!participant) return jsonError('Participante no encontrado', 404)
 
-  const session = await verifyAdmin(participant.sessionId, adminCode)
+  const session = await verifyAdminAccess(participant.sessionId, adminCode)
   if (!session) return jsonError('No autorizado', 401)
 
   await db.participant.delete({ where: { id } })

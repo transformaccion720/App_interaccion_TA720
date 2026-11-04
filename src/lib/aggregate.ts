@@ -6,6 +6,13 @@ import type {
 import {
   type DecisionTreeAnswer,
   type DecisionTreeResults,
+  type DiagChoiceResult,
+  type DiagPrompt,
+  type DiagScaleResult,
+  type DiagTextResult,
+  type DiagnosticoAnswer,
+  type DiagnosticoConfig,
+  type DiagnosticoResults,
   type MultipleChoiceAnswer,
   type MultipleChoiceResults,
   type OpenTextAnswer,
@@ -59,6 +66,8 @@ export function aggregateResults(
       return { type: 'decision_tree', data: aggregateDecisionTree(configRaw, answers) }
     case 'open_text':
       return { type: 'open_text', data: aggregateOpenText(answers) }
+    case 'diagnostico':
+      return { type: 'diagnostico', data: aggregateDiagnostico(configRaw, answers) }
     default:
       return null
   }
@@ -213,4 +222,84 @@ function aggregateOpenText(
   })
   items.sort((a, b) => b.at.localeCompare(a.at))
   return { total: answers.length, items }
+}
+
+// ---------- Diagnóstico situacional ----------
+
+function extractKeywords(text: string): string[] {
+  const seen = new Set<string>()
+  for (const raw of text.split(/[\s,.;:!¿?¡()"']+/)) {
+    const word = normalizeWord(raw)
+    if (!isMeaningfulWord(word)) continue
+    seen.add(word)
+  }
+  return [...seen]
+}
+
+function aggregateDiagnostico(
+  configRaw: string,
+  answers: { payload: string; participantName?: string; updatedAt?: Date }[]
+): DiagnosticoResults {
+  const config = parseConfig<DiagnosticoConfig>({ type: 'diagnostico', config: configRaw })
+  const prompts = config.prompts || []
+
+  // Valores por prompt a lo largo de todas las respuestas
+  const parsed = answers.map((a) => ({
+    payload: parsePayload<DiagnosticoAnswer>(a),
+    participantName: a.participantName,
+    updatedAt: a.updatedAt,
+  }))
+
+  const results: DiagnosticoResults['prompts'] = prompts.map((prompt: DiagPrompt) => {
+    if (prompt.inputType === 'text') {
+      const items: DiagTextResult['items'] = []
+      const freq = new Map<string, number>()
+      for (const a of parsed) {
+        const text = (a.payload.values?.[prompt.id] || '').toString()
+        if (!text.trim()) continue
+        items.push({
+          participant: a.participantName || 'Anónimo',
+          text: text.trim(),
+          at: (a.updatedAt || new Date()).toISOString(),
+        })
+        // Cada palabra cuenta una vez por participante (evita inflar repeticiones)
+        for (const word of extractKeywords(text)) {
+          freq.set(word, (freq.get(word) || 0) + 1)
+        }
+      }
+      items.sort((a, b) => b.at.localeCompare(a.at))
+      const keywords = [...freq.entries()]
+        .map(([word, count]) => ({ word, count }))
+        .sort((a, b) => b.count - a.count || a.word.localeCompare(b.word))
+        .slice(0, 24)
+      return { promptId: prompt.id, kind: 'text', total: items.length, items, keywords } satisfies DiagTextResult
+    }
+
+    if (prompt.inputType === 'choice') {
+      const counts: Record<string, number> = {}
+      for (const opt of prompt.options || []) counts[opt] = 0
+      for (const a of parsed) {
+        const value = (a.payload.values?.[prompt.id] || '').toString().trim()
+        if (!value) continue
+        counts[value] = (counts[value] || 0) + 1
+      }
+      return { promptId: prompt.id, kind: 'choice', total: Object.values(counts).reduce((s, n) => s + n, 0), counts } satisfies DiagChoiceResult
+    }
+
+    // Escala 1-5
+    const counts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
+    let sum = 0
+    let n = 0
+    for (const a of parsed) {
+      const value = (a.payload.values?.[prompt.id] || '').toString().trim()
+      if (!/^[1-5]$/.test(value)) continue
+      counts[value]++
+      sum += Number(value)
+      n++
+    }
+    const average = n > 0 ? Math.round((sum / n) * 10) / 10 : 0
+    return { promptId: prompt.id, kind: 'scale', total: n, counts, average } satisfies DiagScaleResult
+  })
+
+  return { total: answers.length, prompts: results }
 }

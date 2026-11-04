@@ -14,6 +14,9 @@ import { toast } from '@/hooks/use-toast'
 import {
   type DecisionNode,
   type DecisionTreeConfig,
+  type DiagInputType,
+  type DiagPrompt,
+  type DiagnosticoConfig,
   type MultipleChoiceConfig,
   type OpenTextConfig,
   type QuestionAdmin,
@@ -28,6 +31,7 @@ import {
   Cloud,
   Network,
   MessageSquareText,
+  ClipboardList,
   Plus,
   Trash2,
   ImagePlus,
@@ -35,6 +39,8 @@ import {
   Save,
   Timer,
   CircleCheck,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 
 export const TYPE_META: Record<QuestionType, { icon: typeof CheckSquare; desc: string }> = {
@@ -43,6 +49,7 @@ export const TYPE_META: Record<QuestionType, { icon: typeof CheckSquare; desc: s
   word_cloud: { icon: Cloud, desc: 'Lluvia de palabras clave en vivo' },
   decision_tree: { icon: Network, desc: 'Recorrido guiado por pasos hasta una conclusión' },
   open_text: { icon: MessageSquareText, desc: 'Respuestas escritas en texto libre' },
+  diagnostico: { icon: ClipboardList, desc: 'Bloque de preguntas mixtas (opciones, escala y texto) con gráficos en vivo' },
 }
 
 function uid() {
@@ -55,7 +62,7 @@ export interface EditorDraft {
   description: string
   imageUrl: string
   timerSeconds: string
-  config: MultipleChoiceConfig & SemaforoConfig & WordCloudConfig & DecisionTreeConfig & OpenTextConfig
+  config: MultipleChoiceConfig & SemaforoConfig & WordCloudConfig & DecisionTreeConfig & OpenTextConfig & DiagnosticoConfig
 }
 
 export function emptyDraft(type: QuestionType): EditorDraft {
@@ -75,8 +82,17 @@ export function emptyDraft(type: QuestionType): EditorDraft {
       rootId: null,
       nodes: [],
       maxLength: 300,
+      prompts: type === 'diagnostico' ? defaultDiagPrompts() : [],
     },
   }
+}
+
+// Punto de partida útil para un diagnóstico nuevo: el docente edita o borra
+function defaultDiagPrompts(): DiagPrompt[] {
+  return [
+    { id: uid(), label: '', inputType: 'choice', options: ['', '', ''] },
+    { id: uid(), label: '', inputType: 'text', maxLength: 300 },
+  ]
 }
 
 export function draftFromQuestion(q: QuestionAdmin): EditorDraft {
@@ -143,6 +159,20 @@ export function QuestionEditor({
     if (d.type === 'decision_tree') {
       const nodes = d.config.nodes
       return !!d.config.rootId && nodes.length >= 1 && nodes.every((n) => n.text.trim() && n.options.length >= 1 && n.options.every((o) => o.label.trim()))
+    }
+    if (d.type === 'diagnostico') {
+      const prompts = d.config.prompts
+      return (
+        prompts.length >= 1 &&
+        prompts.every((p) => {
+          if (!p.label.trim()) return false
+          if (p.inputType === 'choice') {
+            const opts = (p.options || []).filter((o) => o.trim())
+            return opts.length >= 2
+          }
+          return true
+        })
+      )
     }
     return true
   }
@@ -242,6 +272,7 @@ export function QuestionEditor({
         {d.type === 'word_cloud' && <WordCloudEditor draft={d} setConfig={setConfig} />}
         {d.type === 'decision_tree' && <DecisionEditor draft={d} setConfig={setConfig} />}
         {d.type === 'open_text' && <OpenTextEditor draft={d} setConfig={setConfig} />}
+        {d.type === 'diagnostico' && <DiagnosticoEditor draft={d} setConfig={setConfig} />}
       </div>
 
       <div className="flex flex-col-reverse sm:flex-row gap-2 justify-end border-t pt-4">
@@ -619,6 +650,250 @@ function DecisionEditor({
           <Plus className="h-4 w-4 mr-1" /> Añadir nodo
         </Button>
       </div>
+    </div>
+  )
+}
+
+// ------------------- Diagnóstico situacional -------------------
+
+const INPUT_TYPE_LABELS: Record<DiagInputType, string> = {
+  choice: 'Opciones (elección única)',
+  scale: 'Escala 1 a 5',
+  text: 'Texto libre',
+}
+
+function DiagnosticoEditor({
+  draft,
+  setConfig,
+}: {
+  draft: EditorDraft
+  setConfig: (p: Partial<EditorDraft['config']>) => void
+}) {
+  const prompts = draft.config.prompts
+
+  function updatePrompt(i: number, patch: Partial<DiagPrompt>) {
+    setConfig({ prompts: prompts.map((p, j) => (i === j ? { ...p, ...patch } : p)) })
+  }
+
+  function movePrompt(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= prompts.length) return
+    const next = [...prompts]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    setConfig({ prompts: next })
+  }
+
+  function removePrompt(i: number) {
+    setConfig({ prompts: prompts.filter((_, j) => j !== i) })
+  }
+
+  function addPrompt() {
+    if (prompts.length >= 8) return
+    setConfig({
+      prompts: [...prompts, { id: uid(), label: '', inputType: 'text', maxLength: 300 }],
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Un diagnóstico agrupa varias preguntas en un solo formulario. Cada una puede ser de{' '}
+        <strong>opciones</strong>, <strong>escala 1-5</strong> o <strong>texto libre</strong>. Los
+        resultados se muestran en vivo con gráficos que se adaptan a la cantidad de respuestas.
+      </p>
+
+      <div className="space-y-3">
+        {prompts.map((prompt, i) => (
+          <div key={prompt.id} className="rounded-xl border p-4 space-y-3 bg-card">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="font-mono text-xs shrink-0">
+                {i + 1}
+              </Badge>
+              <Select
+                value={prompt.inputType}
+                onValueChange={(v) => {
+                  const inputType = v as DiagInputType
+                  const patch: Partial<DiagPrompt> = { inputType }
+                  if (inputType === 'choice' && !(prompt.options && prompt.options.filter(Boolean).length >= 2)) {
+                    patch.options = ['', '', '']
+                  }
+                  if (inputType === 'scale') {
+                    patch.minLabel = prompt.minLabel || 'Muy bajo'
+                    patch.maxLabel = prompt.maxLabel || 'Muy alto'
+                  }
+                  if (inputType === 'text' && !prompt.maxLength) patch.maxLength = 300
+                  updatePrompt(i, patch)
+                }}
+              >
+                <SelectTrigger className="h-8 w-full sm:w-64 shrink-0 sm:ml-auto" aria-label="Tipo de respuesta">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(INPUT_TYPE_LABELS) as DiagInputType[]).map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {INPUT_TYPE_LABELS[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex flex-col shrink-0">
+                <button
+                  type="button"
+                  className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  onClick={() => movePrompt(i, -1)}
+                  disabled={i === 0}
+                  aria-label="Subir pregunta"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  onClick={() => movePrompt(i, 1)}
+                  disabled={i === prompts.length - 1}
+                  aria-label="Bajar pregunta"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                onClick={() => removePrompt(i)}
+                aria-label={`Eliminar pregunta ${i + 1}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <Input
+              value={prompt.label}
+              onChange={(e) => updatePrompt(i, { label: e.target.value })}
+              placeholder={`Pregunta ${i + 1} — ej.: ¿Qué tan seguro/a te sientes?`}
+              maxLength={250}
+              className="h-10"
+            />
+
+            {prompt.inputType === 'choice' && (
+              <div className="space-y-2 rounded-lg bg-muted/40 p-3">
+                {(prompt.options || []).map((opt, j) => (
+                  <div key={j} className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold text-muted-foreground">
+                      {String.fromCharCode(65 + j)}
+                    </span>
+                    <Input
+                      value={opt}
+                      onChange={(e) =>
+                        updatePrompt(i, {
+                          options: (prompt.options || []).map((o, k) => (k === j ? e.target.value : o)),
+                        })
+                      }
+                      placeholder={`Opción ${String.fromCharCode(65 + j)}`}
+                      maxLength={120}
+                      className="h-9"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() =>
+                        updatePrompt(i, { options: (prompt.options || []).filter((_, k) => k !== j) })
+                      }
+                      aria-label={`Eliminar opción ${String.fromCharCode(65 + j)}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                {(prompt.options || []).length < 8 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updatePrompt(i, { options: [...(prompt.options || []), ''] })}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Añadir opción
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {prompt.inputType === 'scale' && (
+              <div className="grid sm:grid-cols-2 gap-2 rounded-lg bg-muted/40 p-3">
+                <div className="space-y-1">
+                  <Label htmlFor={`sc-min-${prompt.id}`} className="text-xs text-muted-foreground">
+                    Etiqueta del 1 (extremo izquierdo)
+                  </Label>
+                  <Input
+                    id={`sc-min-${prompt.id}`}
+                    value={prompt.minLabel || ''}
+                    onChange={(e) => updatePrompt(i, { minLabel: e.target.value })}
+                    placeholder="Ej.: Nada seguro/a"
+                    maxLength={40}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`sc-max-${prompt.id}`} className="text-xs text-muted-foreground">
+                    Etiqueta del 5 (extremo derecho)
+                  </Label>
+                  <Input
+                    id={`sc-max-${prompt.id}`}
+                    value={prompt.maxLabel || ''}
+                    onChange={(e) => updatePrompt(i, { maxLabel: e.target.value })}
+                    placeholder="Ej.: Muy seguro/a"
+                    maxLength={40}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            )}
+
+            {prompt.inputType === 'text' && (
+              <div className="grid sm:grid-cols-2 gap-2 rounded-lg bg-muted/40 p-3">
+                <div className="space-y-1">
+                  <Label htmlFor={`tx-ph-${prompt.id}`} className="text-xs text-muted-foreground">
+                    Texto de ayuda (opcional)
+                  </Label>
+                  <Input
+                    id={`tx-ph-${prompt.id}`}
+                    value={prompt.placeholder || ''}
+                    onChange={(e) => updatePrompt(i, { placeholder: e.target.value })}
+                    placeholder="Ej.: cuéntanos con tus palabras…"
+                    maxLength={120}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`tx-max-${prompt.id}`} className="text-xs text-muted-foreground">
+                    Longitud máxima
+                  </Label>
+                  <Input
+                    id={`tx-max-${prompt.id}`}
+                    type="number"
+                    min={50}
+                    max={1000}
+                    value={prompt.maxLength || 300}
+                    onChange={(e) =>
+                      updatePrompt(i, { maxLength: Math.max(50, Math.min(1000, Number(e.target.value) || 300)) })
+                    }
+                    className="h-9 w-32"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {prompts.length < 8 && (
+        <Button type="button" variant="secondary" onClick={addPrompt}>
+          <Plus className="h-4 w-4 mr-1" /> Añadir pregunta al diagnóstico
+        </Button>
+      )}
     </div>
   )
 }

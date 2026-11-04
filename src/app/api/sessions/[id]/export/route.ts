@@ -1,8 +1,9 @@
 // GET /api/sessions/[id]/export?admin=CODE — exporta todas las respuestas a CSV
 import { db } from '@/lib/db'
-import { jsonError, verifyAdmin } from '@/lib/api-helpers'
+import { jsonError, verifyAdminAccess } from '@/lib/api-helpers'
 import {
   type DecisionTreeAnswer,
+  type DiagnosticoAnswer,
   type MultipleChoiceAnswer,
   type OpenTextAnswer,
   type QuestionType,
@@ -21,7 +22,7 @@ export async function GET(
 ) {
   const { id } = await params
   const url = new URL(req.url)
-  const session = await verifyAdmin(id, url.searchParams.get('admin'))
+  const session = await verifyAdminAccess(id, url.searchParams.get('admin'))
   if (!session) return jsonError('No autorizado', 401)
 
   const questions = await db.question.findMany({
@@ -39,6 +40,7 @@ export async function GET(
     word_cloud: 'Nube de palabras',
     decision_tree: 'Árbol de decisiones',
     open_text: 'Abierta',
+    diagnostico: 'Diagnóstico situacional',
   }
 
   for (const q of questions) {
@@ -94,6 +96,15 @@ export async function GET(
       } else if (type === 'open_text') {
         const p = payload as unknown as OpenTextAnswer
         answerText = p.text || ''
+      } else if (type === 'diagnostico') {
+        const p = payload as unknown as DiagnosticoAnswer
+        const prompts = ((config.prompts as { id: string; label: string }[]) || [])
+        answerText = Object.entries(p.values || {})
+          .map(([pid, value]) => {
+            const prompt = prompts.find((x) => x.id === pid)
+            return `${prompt?.label || pid}: ${value}`
+          })
+          .join(' | ')
       }
 
       rows.push(

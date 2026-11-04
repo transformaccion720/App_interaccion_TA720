@@ -46,33 +46,49 @@ export default function AdminSessionPage() {
   const [editMax, setEditMax] = useState(100)
   const busyRef = useRef(false)
 
-  // ---- Autenticación con el código de administrador ----
+  // ---- Autenticación: cookie del docente primero; código de administrador como respaldo ----
   useEffect(() => {
     if (!sessionId) return
     const fromUrl = new URLSearchParams(window.location.search).get('admin')
-    const stored = localStorage.getItem(`aulaviva:admin:${sessionId}`)
-    const code = fromUrl || stored
-    if (code) {
-      localStorage.setItem(`aulaviva:admin:${sessionId}`, code)
-      setAdminCode(code)
+    if (fromUrl) {
+      // Ruta legada: sesión compartida con el código en la URL
+      setAdminCode(fromUrl)
       setAuthState('ok')
-    } else {
-      setAuthState('need-code')
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/live`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+        if (cancelled) return
+        if (res.ok) {
+          setAuthState('ok') // autorizado por la cookie del docente
+        } else {
+          setAuthState('need-code')
+        }
+      } catch {
+        if (!cancelled) setAuthState('need-code')
+      }
+    })()
+    return () => {
+      cancelled = true
     }
   }, [sessionId])
 
   const refresh = useCallback(async () => {
-    if (!sessionId || !adminCode) return
+    if (!sessionId || authState !== 'ok') return
     try {
       const res = await fetch(`/api/sessions/${sessionId}/live`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminCode }),
+        headers: { 'Content-Type': 'application/json', ...(adminCode ? { 'x-admin-code': adminCode } : {}) },
+        body: JSON.stringify(adminCode ? { adminCode } : {}),
       })
       if (res.status === 401) {
-        localStorage.removeItem(`aulaviva:admin:${sessionId}`)
         setAuthState('need-code')
-        setAdminCode(null)
         return
       }
       const data: AdminLive = await res.json()
@@ -81,7 +97,7 @@ export default function AdminSessionPage() {
     } catch {
       setConnectionError(true)
     }
-  }, [sessionId, adminCode])
+  }, [sessionId, adminCode, authState])
 
   useEffect(() => {
     if (authState !== 'ok') return
@@ -100,7 +116,6 @@ export default function AdminSessionPage() {
       body: JSON.stringify({ adminCode: code }),
     })
     if (res.ok) {
-      localStorage.setItem(`aulaviva:admin:${sessionId}`, code)
       setAdminCode(code)
       setAuthState('ok')
     } else {
@@ -122,7 +137,9 @@ export default function AdminSessionPage() {
         <div className="w-full max-w-sm space-y-4 text-center">
           <h1 className="text-2xl font-bold">Panel del docente</h1>
           <p className="text-sm text-muted-foreground">
-            Ingresa el código de administrador de esta sesión para continuar.
+            Esta sesión no está asociada a tu cuenta. Ingresa tu cuenta en{' '}
+            <Link href="/admin" className="text-primary hover:underline">/admin</Link> o usa el
+            código de administrador de esta sesión.
           </p>
           <form onSubmit={submitCode} className="space-y-3">
             <Input

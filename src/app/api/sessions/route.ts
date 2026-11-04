@@ -1,7 +1,32 @@
-// POST /api/sessions — crea una nueva sesión
+// GET  /api/sessions — lista las sesiones del docente autenticado (más recientes primero)
+// POST /api/sessions — crea una nueva sesión (asociada al docente si inició sesión)
 import { db } from '@/lib/db'
 import { generateCode } from '@/lib/codes'
 import { jsonError } from '@/lib/api-helpers'
+import { getAuthTeacher } from '@/lib/auth'
+
+export async function GET() {
+  const teacher = await getAuthTeacher()
+  if (!teacher) return jsonError('No autenticado', 401)
+
+  const sessions = await db.session.findMany({
+    where: { teacherId: teacher.id },
+    orderBy: { updatedAt: 'desc' },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      joinCode: true,
+      status: true,
+      maxParticipants: true,
+      createdAt: true,
+      updatedAt: true,
+      _count: { select: { questions: true, participants: true } },
+    },
+  })
+
+  return Response.json({ sessions })
+}
 
 export async function POST(req: Request) {
   try {
@@ -12,6 +37,8 @@ export async function POST(req: Request) {
 
     if (!title) return jsonError('El título es obligatorio')
     if (title.length > 120) return jsonError('El título es demasiado largo')
+
+    const teacher = await getAuthTeacher()
 
     // Genera códigos únicos
     let joinCode = ''
@@ -32,7 +59,15 @@ export async function POST(req: Request) {
     if (!joinCode) return jsonError('No se pudo generar un código único, intenta de nuevo', 500)
 
     const session = await db.session.create({
-      data: { title, description, joinCode, adminCode, maxParticipants, status: 'draft' },
+      data: {
+        title,
+        description,
+        joinCode,
+        adminCode,
+        maxParticipants,
+        status: 'draft',
+        teacherId: teacher?.id || null,
+      },
     })
 
     return Response.json({

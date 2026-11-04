@@ -2,7 +2,7 @@
 import { db } from '@/lib/db'
 import { jsonError, verifyAdmin } from '@/lib/api-helpers'
 
-const VALID_TYPES = ['multiple_choice', 'semaforo', 'word_cloud', 'decision_tree', 'open_text']
+const VALID_TYPES = ['multiple_choice', 'semaforo', 'word_cloud', 'decision_tree', 'open_text', 'diagnostico']
 
 export async function POST(
   req: Request,
@@ -10,7 +10,7 @@ export async function POST(
 ) {
   const { id } = await params
   const adminCode = req.headers.get('x-admin-code')
-  const session = await verifyAdmin(id, adminCode)
+  const session = await verifyAdminAccess(id, adminCode)
   if (!session) return jsonError('No autorizado', 401)
 
   try {

@@ -1,6 +1,6 @@
 // POST /api/sessions/[id]/live — panel en vivo del administrador (latidos de asistentes, resultados)
 import { db } from '@/lib/db'
-import { jsonError, verifyAdmin, maybeAutoClose } from '@/lib/api-helpers'
+import { jsonError, verifyAdminAccess, maybeAutoClose } from '@/lib/api-helpers'
 import { aggregateResults, parseConfig } from '@/lib/aggregate'
 import { ONLINE_WINDOW_MS } from '@/lib/codes'
 import type {
@@ -20,7 +20,7 @@ export async function POST(
   try {
     const body = await req.json().catch(() => ({}))
     const adminCode = body.adminCode || req.headers.get('x-admin-code')
-    const session = await verifyAdmin(id, adminCode)
+    const session = await verifyAdminAccess(id, adminCode)
     if (!session) return jsonError('No autorizado', 401)
 
     const [participants, questions] = await Promise.all([

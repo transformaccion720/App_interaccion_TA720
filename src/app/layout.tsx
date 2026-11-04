@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AulaViva — Participación en clase en tiempo real",
   description:
-    "Plataforma de interacción para el aula: códigos y QR para unirse, opciones múltiples, semáforo, nube de palabras, árbol de decisiones y panel de gestión en vivo.",
-  keywords: ["aula", "interacción", "encuestas", "quiz", "clase", "tiempo real"],
+    "Plataforma de interacción para el aula: códigos y QR para unirse, opción múltiple, semáforo, nube de palabras, árbol de decisiones, diagnóstico situacional y panel de gestión en vivo con login para docentes.",
+  keywords: ["aula", "interacción", "encuestas", "quiz", "clase", "tiempo real", "diagnóstico"],
 };
 
 export const viewport: Viewport = {

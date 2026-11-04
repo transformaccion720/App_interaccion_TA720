@@ -1,10 +1,10 @@
 // PUT    /api/questions/[id] — actualiza pregunta (contenido, configuración o estado)
 // DELETE /api/questions/[id] — elimina pregunta y sus respuestas
 import { db } from '@/lib/db'
-import { jsonError, verifyAdmin, maybeAutoClose } from '@/lib/api-helpers'
+import { jsonError, verifyAdminAccess, maybeAutoClose } from '@/lib/api-helpers'
 
 const VALID_STATES = ['pending', 'open', 'revealed', 'closed']
-const VALID_TYPES = ['multiple_choice', 'semaforo', 'word_cloud', 'decision_tree', 'open_text']
+const VALID_TYPES = ['multiple_choice', 'semaforo', 'word_cloud', 'decision_tree', 'open_text', 'diagnostico']
 
 export async function PUT(
   req: Request,
@@ -18,7 +18,7 @@ export async function PUT(
     if (!question) return jsonError('Pregunta no encontrada', 404)
 
     const adminCode = req.headers.get('x-admin-code')
-    const session = await verifyAdmin(question.sessionId, adminCode)
+    const session = await verifyAdminAccess(question.sessionId, adminCode)
     if (!session) return jsonError('No autorizado', 401)
 
     const data: Record<string, unknown> = {}
@@ -81,7 +81,7 @@ export async function DELETE(
   if (!question) return jsonError('Pregunta no encontrada', 404)
 
   const adminCode = req.headers.get('x-admin-code')
-  const session = await verifyAdmin(question.sessionId, adminCode)
+  const session = await verifyAdminAccess(question.sessionId, adminCode)
   if (!session) return jsonError('No autorizado', 401)
 
   await db.question.delete({ where: { id } })

@@ -2,6 +2,7 @@
 import { db } from '@/lib/db'
 import { generateCode } from '@/lib/codes'
 import { jsonError } from '@/lib/api-helpers'
+import { getAuthTeacher } from '@/lib/auth'
 
 export async function POST() {
   try {
@@ -128,16 +129,63 @@ export async function POST() {
         type: 'open_text',
         config: JSON.stringify({ maxLength: 300 }),
       },
+      {
+        order: 5,
+        title: 'Diagnóstico situacional: tu experiencia con la IA',
+        description: 'Responde con sinceridad: verás gráficos con los resultados del grupo en vivo.',
+        type: 'diagnostico',
+        config: JSON.stringify({
+          prompts: [
+            {
+              id: id('p'),
+              label: '¿Cuánto has usado la IA hasta hoy?',
+              inputType: 'choice',
+              options: ['Nunca', 'Poco', 'Regular', 'Frecuentemente', 'A diario'],
+            },
+            {
+              id: id('p'),
+              label: '¿Para qué la usas principalmente?',
+              inputType: 'text',
+              placeholder: 'Ej.: para buscar información, redactar, programar…',
+              maxLength: 300,
+            },
+            {
+              id: id('p'),
+              label: '¿Qué tan seguro/a te sientes al usarla?',
+              inputType: 'scale',
+              minLabel: 'Nada seguro/a',
+              maxLabel: 'Muy seguro/a',
+            },
+            {
+              id: id('p'),
+              label: '¿Cuáles son tus principales preocupaciones sobre la IA?',
+              inputType: 'text',
+              placeholder: 'Ej.: privacidad, dependencia, exactitud…',
+              maxLength: 300,
+            },
+            {
+              id: id('p'),
+              label: '¿Qué esperas de este curso?',
+              inputType: 'text',
+              placeholder: 'Cuéntanos qué te gustaría aprender…',
+              maxLength: 300,
+            },
+          ],
+        }),
+      },
     ]
+
+    const teacher = await getAuthTeacher()
 
     const session = await db.session.create({
       data: {
         title: 'Clase de demostración — AulaViva',
-        description: 'Sesión de ejemplo con los 5 tipos de interacción. ¡Pruébala compartiendo el código con tus alumnos!',
+        description: 'Sesión de ejemplo con los 6 tipos de interacción, incluido el diagnóstico situacional. ¡Pruébala compartiendo el código con tus alumnos!',
         joinCode,
         adminCode,
         maxParticipants: 100,
         status: 'draft',
+        teacherId: teacher?.id || null,
         questions: { create: demoQuestions },
       },
     })

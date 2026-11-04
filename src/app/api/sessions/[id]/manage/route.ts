@@ -11,7 +11,7 @@ export async function GET(
 ) {
   const { id } = await params
   const adminCode = req.headers.get('x-admin-code')
-  const session = await verifyAdmin(id, adminCode)
+  const session = await verifyAdminAccess(id, adminCode)
   if (!session) return jsonError('No autorizado', 401)
 
   const [questions, participantCount] = await Promise.all([
@@ -58,7 +58,7 @@ export async function PUT(
 ) {
   const { id } = await params
   const adminCode = req.headers.get('x-admin-code')
-  const session = await verifyAdmin(id, adminCode)
+  const session = await verifyAdminAccess(id, adminCode)
   if (!session) return jsonError('No autorizado', 401)
 
   try {

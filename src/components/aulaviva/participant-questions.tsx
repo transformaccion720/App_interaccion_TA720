@@ -12,6 +12,9 @@ import {
   type DecisionStep,
   type DecisionTreeAnswer,
   type DecisionTreeConfig,
+  type DiagnosticoAnswer,
+  type DiagnosticoConfig,
+  type DiagPrompt,
   type MultipleChoiceAnswer,
   type MultipleChoiceConfig,
   type OpenTextAnswer,
@@ -23,7 +26,7 @@ import {
   type WordCloudAnswer,
   type WordCloudConfig,
 } from '@/lib/types'
-import { CheckCircle2, XCircle, CircleDashed, X, CornerUpLeft, Send, CheckCheck } from 'lucide-react'
+import { CheckCircle2, XCircle, CircleDashed, X, CornerUpLeft, Send, CheckCheck, ClipboardList } from 'lucide-react'
 
 export function ParticipantQuestion({
   question,
@@ -51,6 +54,8 @@ export function ParticipantQuestion({
       return <DecisionTreeForm config={config as DecisionTreeConfig} myAnswer={myAnswer as DecisionTreeAnswer | null} onSubmit={onSubmit} submitting={submitting} />
     case 'open_text':
       return <OpenTextForm config={config as OpenTextConfig} myAnswer={myAnswer as OpenTextAnswer | null} onSubmit={onSubmit} submitting={submitting} />
+    case 'diagnostico':
+      return <DiagnosticoForm config={config as DiagnosticoConfig} myAnswer={myAnswer as DiagnosticoAnswer | null} onSubmit={onSubmit} submitting={submitting} />
   }
 }
 
@@ -509,5 +514,156 @@ function OpenTextForm({
       </div>
       <SubmitButton disabled={!valid} submitting={submitting} />
     </form>
+  )
+}
+
+// ------------------- Diagnóstico situacional -------------------
+function DiagnosticoForm({
+  config,
+  myAnswer,
+  onSubmit,
+  submitting,
+}: {
+  config: DiagnosticoConfig
+  myAnswer: DiagnosticoAnswer | null
+  onSubmit: (payload: Record<string, unknown>) => void
+  submitting: boolean
+}) {
+  const prompts = config?.prompts || []
+  const [values, setValues] = useState<Record<string, string>>(myAnswer?.values || {})
+
+  const allAnswered = prompts.every((p) => (values[p.id] || '').trim())
+  const progress = prompts.length > 0 ? prompts.filter((p) => (values[p.id] || '').trim()).length : 0
+
+  return (
+    <form
+      className="space-y-5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (!allAnswered) {
+          toast({ title: 'Faltan preguntas por responder', description: 'Completa todas para enviar tu diagnóstico.', variant: 'destructive' })
+          return
+        }
+        onSubmit({ values } satisfies DiagnosticoAnswer)
+      }}
+    >
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <ClipboardList className="h-3.5 w-3.5" />
+        {progress} de {prompts.length} preguntas completadas
+      </div>
+
+      {prompts.map((prompt, idx) => (
+        <fieldset key={prompt.id} className="space-y-2.5 rounded-xl border p-4 bg-card">
+          <legend className="sr-only">Pregunta {idx + 1}</legend>
+          <p className="text-sm font-medium leading-snug">
+            <span className="text-muted-foreground mr-1.5">{idx + 1}.</span>
+            {prompt.label}
+          </p>
+          <DiagPromptInput prompt={prompt} value={values[prompt.id] || ''} onChange={(v) => setValues((prev) => ({ ...prev, [prompt.id]: v }))} />
+        </fieldset>
+      ))}
+
+      <SubmitButton
+        disabled={!allAnswered}
+        submitting={submitting}
+        label={allAnswered ? 'Enviar diagnóstico' : `Responde las ${prompts.length} preguntas`}
+      />
+    </form>
+  )
+}
+
+function DiagPromptInput({
+  prompt,
+  value,
+  onChange,
+}: {
+  prompt: DiagPrompt
+  value: string
+  onChange: (v: string) => void
+}) {
+  if (prompt.inputType === 'text') {
+    const maxLength = Math.max(10, Math.min(1000, prompt.maxLength || 300))
+    return (
+      <div className="space-y-1.5">
+        <Textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value.slice(0, maxLength))}
+          placeholder={prompt.placeholder || 'Escribe tu respuesta…'}
+          rows={3}
+          aria-label={prompt.label}
+        />
+        <p className="text-xs text-muted-foreground text-right">
+          {value.length}/{maxLength}
+        </p>
+      </div>
+    )
+  }
+
+  if (prompt.inputType === 'choice') {
+    const options = prompt.options || []
+    return (
+      <div className="grid gap-2" role="radiogroup" aria-label={prompt.label}>
+        {options.map((opt, i) => {
+          const active = value === opt
+          return (
+            <button
+              key={i}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => onChange(opt)}
+              className={`flex w-full items-center gap-3 rounded-lg border-2 p-3 text-left text-sm font-medium transition-colors min-h-11 ${
+                active
+                  ? 'border-teal-600 bg-teal-50 text-teal-900'
+                  : 'border-border bg-card hover:border-teal-300 hover:bg-teal-50/40'
+              }`}
+            >
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                  active ? 'border-teal-600 bg-teal-600 text-white' : 'border-muted-foreground/40 text-muted-foreground'
+                }`}
+              >
+                {String.fromCharCode(65 + i)}
+              </span>
+              {opt}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Escala 1-5
+  const scaleValue = Number(value) || 0
+  const scaleColors = ['', 'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-lime-600', 'bg-emerald-600']
+  return (
+    <div className="space-y-1.5">
+      <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label={prompt.label}>
+        {[1, 2, 3, 4, 5].map((n) => {
+          const active = scaleValue === n
+          return (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={`${n} de 5`}
+              onClick={() => onChange(String(n))}
+              className={`flex min-h-11 items-center justify-center rounded-lg border-2 text-sm font-bold transition-colors ${
+                active
+                  ? `border-transparent ${scaleColors[n]} text-white`
+                  : 'border-border bg-card text-muted-foreground hover:border-teal-300'
+              }`}
+            >
+              {n}
+            </button>
+          )
+        })}
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{prompt.minLabel || '1'}</span>
+        <span>{prompt.maxLabel || '5'}</span>
+      </div>
+    </div>
   )
 }
