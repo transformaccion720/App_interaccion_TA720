@@ -181,7 +181,7 @@ export async function POST() {
 
     const session = await db.session.create({
       data: {
-        title: 'Clase de demostración — AulaViva',
+        title: 'Clase de demostración — Transform Acción 720',
         description: 'Sesión de ejemplo con los 6 tipos de interacción, incluido el diagnóstico situacional. ¡Pruébala compartiendo el código con tus alumnos!',
         joinCode,
         adminCode,
