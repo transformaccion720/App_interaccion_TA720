@@ -1,0 +1,85 @@
+// AulaViva — Esquema para PostgreSQL (Neon / producción)
+//
+// INSTRUCCIONES: cuando despliegues en Vercel + Neon, reemplaza el contenido
+// de prisma/schema.prisma por ESTE archivo (o cambia solo el datasource),
+// configura DATABASE_URL y ejecuta:
+//    npx prisma db push
+//
+// El resto del código no cambia: los modelos son idénticos a la versión SQLite.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")      // cadena pooled (pooled connection de Neon)
+  directUrl = env("DIRECT_URL")        // cadena directa de Neon (para db push / migraciones)
+}
+
+// SESIÓN / PRESENTACIÓN (creada por el docente)
+model Session {
+  id              String       @id @default(cuid())
+  title           String
+  description     String?
+  joinCode        String       @unique
+  adminCode       String       @unique
+  maxParticipants Int          @default(100)
+  status          String       @default("draft") // draft | live | closed
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  questions       Question[]
+  participants    Participant[]
+
+  @@index([joinCode])
+}
+
+// PREGUNTA (multiple_choice | semaforo | word_cloud | decision_tree | open_text)
+model Question {
+  id           String    @id @default(cuid())
+  sessionId    String
+  session      Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  order        Int       @default(0)
+  title        String
+  description  String?
+  imageUrl     String?
+  type         String
+  config       String    @default("{}")
+  state        String    @default("pending") // pending | open | revealed | closed
+  openedAt     DateTime?
+  timerSeconds Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  answers      Answer[]
+
+  @@index([sessionId, order])
+}
+
+// ASISTENTE (alumno conectado a la sesión)
+model Participant {
+  id         String    @id @default(cuid())
+  sessionId  String
+  session    Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  name       String
+  token      String    @unique
+  lastSeenAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  answers    Answer[]
+
+  @@index([sessionId])
+}
+
+// RESPUESTA (una por participante y pregunta)
+model Answer {
+  id            String      @id @default(cuid())
+  questionId    String
+  question      Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  payload       String      @default("{}")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([questionId, participantId])
+  @@index([questionId])
+}
