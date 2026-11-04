@@ -321,7 +321,7 @@ function MultipleEditor({
             aria-pressed={!!opt.correct}
             onClick={() => update(i, { correct: !opt.correct })}
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
-              opt.correct ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-border text-muted-foreground hover:border-emerald-400'
+              opt.correct ? 'border-viva-600 bg-viva-600 text-white' : 'border-border text-muted-foreground hover:border-viva-400'
             }`}
           >
             <CircleCheck className="h-4.5 w-4.5" />
@@ -395,7 +395,7 @@ function SemaforoEditor({
         <div key={item.id} className="flex items-center gap-2">
           <span
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-              draft.config.allowPartial ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+              draft.config.allowPartial ? 'bg-energy-100 text-energy-700' : 'bg-viva-100 text-viva-700'
             }`}
           >
             {i + 1}
@@ -533,7 +533,7 @@ function DecisionEditor({
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground leading-relaxed">
         Cada <strong>nodo</strong> es un paso con opciones. Una opción puede llevar a otro nodo o
-        terminar el recorrido como <Badge variant="secondary" className="bg-teal-100 text-teal-800">conclusión</Badge>.
+        terminar el recorrido como <Badge variant="secondary" className="bg-brand-100 text-brand-800">conclusión</Badge>.
         Al final, los participantes pueden dejar un comentario.
       </p>
 

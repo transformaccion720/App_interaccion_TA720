@@ -4,9 +4,9 @@
 import { useMemo } from 'react'
 
 const PALETTE = [
-  'text-teal-600',
-  'text-emerald-600',
-  'text-amber-600',
+  'text-brand-600',
+  'text-viva-600',
+  'text-energy-600',
   'text-rose-500',
   'text-violet-600',
   'text-cyan-700',

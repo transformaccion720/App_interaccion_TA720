@@ -1,7 +1,7 @@
 // GET  /api/sessions/[id]/manage — datos completos para editar (requiere adminCode)
 // PUT  /api/sessions/[id]/manage — actualiza sesión y orden de preguntas
 import { db } from '@/lib/db'
-import { jsonError, verifyAdmin } from '@/lib/api-helpers'
+import { jsonError, verifyAdmin, verifyAdminAccess } from '@/lib/api-helpers'
 import { parseConfig } from '@/lib/aggregate'
 import type { QuestionAdmin, QuestionConfig, QuestionType } from '@/lib/types'
 

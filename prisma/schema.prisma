@@ -18,6 +18,7 @@ model Teacher {
   email        String    @unique
   name         String
   passwordHash String // scrypt: "salt:hash" en hexadecimal
+  role         String    @default("DOCENTE") // ADMIN | DOCENTE | MODERADOR
   createdAt    DateTime  @default(now())
   sessions     Session[]
 

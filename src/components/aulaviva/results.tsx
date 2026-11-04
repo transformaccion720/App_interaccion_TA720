@@ -82,8 +82,8 @@ function MultipleResults({
   const options = config?.options || []
   const max = Math.max(1, ...options.map((o) => data.counts[o.id] || 0))
   const COLORS = [
-    'bg-teal-500', 'bg-amber-500', 'bg-rose-400', 'bg-violet-500',
-    'bg-emerald-500', 'bg-cyan-600', 'bg-orange-500', 'bg-fuchsia-500',
+    'bg-brand-500', 'bg-viva-500', 'bg-energy-500', 'bg-brand-300',
+    'bg-violet-500', 'bg-cyan-600', 'bg-rose-400', 'bg-carbon-600',
   ]
   return (
     <div className={`space-y-3 ${compact ? '' : 'py-2'}`}>
@@ -95,7 +95,7 @@ function MultipleResults({
           <div key={opt.id} className="space-y-1">
             <div className="flex items-center justify-between gap-2 text-sm">
               <span className="font-medium flex items-center gap-1.5">
-                {isCorrect && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" aria-label="Correcta" />}
+                {isCorrect && <CheckCircle2 className="h-4 w-4 text-viva-600 shrink-0" aria-label="Correcta" />}
                 {opt.text}
               </span>
               <span className="text-muted-foreground tabular-nums shrink-0">
@@ -129,8 +129,8 @@ function SemaforoResultsView({
         const r = data.items.find((i) => i.itemId === item.id)
         const total = r ? r.valid + r.partial + r.invalid : 0
         const light =
-          r?.overall === 'valid' ? { text: 'text-emerald-700', bg: 'bg-emerald-100', label: 'Válida' }
-          : r?.overall === 'partial' ? { text: 'text-amber-700', bg: 'bg-amber-100', label: 'Parcial' }
+          r?.overall === 'valid' ? { text: 'text-viva-700', bg: 'bg-viva-100', label: 'Válida' }
+          : r?.overall === 'partial' ? { text: 'text-energy-700', bg: 'bg-energy-100', label: 'Parcial' }
           : r?.overall === 'invalid' ? { text: 'text-red-700', bg: 'bg-red-100', label: 'No válida' }
           : { text: 'text-muted-foreground', bg: 'bg-muted', label: 'Sin votos' }
         return (
@@ -144,18 +144,18 @@ function SemaforoResultsView({
             <div className="flex h-3 overflow-hidden rounded-full bg-muted">
               {total > 0 && (
                 <>
-                  <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${(r!.valid / total) * 100}%` }} title={`Válidas: ${r!.valid}`} />
-                  <div className="bg-amber-400 transition-all duration-500" style={{ width: `${(r!.partial / total) * 100}%` }} title={`Parciales: ${r!.partial}`} />
+                  <div className="bg-viva-500 transition-all duration-500" style={{ width: `${(r!.valid / total) * 100}%` }} title={`Válidas: ${r!.valid}`} />
+                  <div className="bg-energy-400 transition-all duration-500" style={{ width: `${(r!.partial / total) * 100}%` }} title={`Parciales: ${r!.partial}`} />
                   <div className="bg-red-500 transition-all duration-500" style={{ width: `${(r!.invalid / total) * 100}%` }} title={`No válidas: ${r!.invalid}`} />
                 </>
               )}
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Válidas: {r?.valid || 0}
+                <span className="inline-block h-2 w-2 rounded-full bg-viva-500" /> Válidas: {r?.valid || 0}
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-full bg-amber-400" /> Parciales: {r?.partial || 0}
+                <span className="inline-block h-2 w-2 rounded-full bg-energy-400" /> Parciales: {r?.partial || 0}
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-full bg-red-500" /> No válidas: {r?.invalid || 0}
@@ -200,7 +200,7 @@ function DecisionResultsView({ data }: { data: DecisionTreeResults }) {
                 {leaf.count} · {data.total > 0 ? Math.round((leaf.count / data.total) * 100) : 0}%
               </span>
             </div>
-            <Bar value={leaf.count} max={max} color="bg-teal-500" />
+            <Bar value={leaf.count} max={max} color="bg-brand-500" />
           </div>
         ))}
       </div>
@@ -266,8 +266,8 @@ function OpenTextResultsView({
 
 // Icono de estado global del semáforo para resúmenes
 export function SemaforoLight({ vote }: { vote: 'valid' | 'partial' | 'invalid' | null }) {
-  if (vote === 'valid') return <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-  if (vote === 'partial') return <CircleDashed className="h-4 w-4 text-amber-500" />
+  if (vote === 'valid') return <CheckCircle2 className="h-4 w-4 text-viva-600" />
+  if (vote === 'partial') return <CircleDashed className="h-4 w-4 text-energy-500" />
   if (vote === 'invalid') return <XCircle className="h-4 w-4 text-red-500" />
   return <CircleDashed className="h-4 w-4 text-muted-foreground" />
 }
@@ -277,7 +277,7 @@ export function SemaforoLight({ vote }: { vote: 'valid' | 'partial' | 'invalid' 
 // las respuestas individuales; a medida que crecen aparecen los agregados
 // (barras de distribución, promedio y palabras clave).
 
-const CHART_BARS = ['bg-teal-500', 'bg-teal-400', 'bg-amber-500', 'bg-slate-400', 'bg-teal-600']
+const CHART_BARS = ['bg-brand-500', 'bg-brand-400', 'bg-energy-500', 'bg-slate-400', 'bg-brand-600']
 
 function DiagnosticoResultsView({
   data,
@@ -367,7 +367,7 @@ function DiagScaleResults({ result }: { result: Extract<DiagPromptResult, { kind
               <span className="text-xs font-semibold tabular-nums text-muted-foreground">{count}</span>
               <div className="flex h-16 w-full items-end rounded-md bg-muted overflow-hidden">
                 <div
-                  className={`w-full rounded-md ${n >= 4 ? 'bg-emerald-500' : n === 3 ? 'bg-amber-500' : 'bg-red-400'} transition-all duration-500`}
+                  className={`w-full rounded-md ${n >= 4 ? 'bg-viva-500' : n === 3 ? 'bg-energy-500' : 'bg-red-400'} transition-all duration-500`}
                   style={{ height: `${Math.max(count > 0 ? 12 : 0, pct)}%` }}
                   title={`${n} estrella${n === 1 ? '' : 's'}: ${count}`}
                 />
@@ -405,7 +405,7 @@ function DiagTextResults({ result }: { result: Extract<DiagPromptResult, { kind:
             {result.keywords.slice(0, 12).map((k) => (
               <span
                 key={k.word}
-                className="rounded-full bg-teal-50 border border-teal-200 px-2.5 py-0.5 text-teal-900"
+                className="rounded-full bg-brand-50 border border-brand-200 px-2.5 py-0.5 text-brand-900"
                 style={{ fontSize: `${Math.min(1, k.count / Math.max(1, result.keywords[0].count)) * 8 + 12}px`, fontWeight: k.count >= 3 ? 700 : 500 }}
                 title={`${k.count} menciones`}
               >

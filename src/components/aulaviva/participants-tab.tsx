@@ -29,7 +29,7 @@ export function ParticipantsTab({ live, onKick }: { live: AdminLive; onKick: (id
         <Badge variant="secondary" className="px-3 py-1.5 text-sm">
           {ps.length} registrado{ps.length === 1 ? '' : 's'}
         </Badge>
-        <Badge variant="secondary" className="px-3 py-1.5 text-sm bg-emerald-100 text-emerald-800">
+        <Badge variant="secondary" className="px-3 py-1.5 text-sm bg-viva-100 text-viva-800">
           {live.onlineCount} en línea
         </Badge>
         <Badge variant="secondary" className="px-3 py-1.5 text-sm">
@@ -65,8 +65,8 @@ export function ParticipantsTab({ live, onKick }: { live: AdminLive; onKick: (id
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell>
                       {p.online ? (
-                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 gap-1">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                        <Badge variant="secondary" className="bg-viva-100 text-viva-800 gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-viva-600 animate-pulse" />
                           En línea
                         </Badge>
                       ) : (
@@ -79,9 +79,9 @@ export function ParticipantsTab({ live, onKick }: { live: AdminLive; onKick: (id
                     <TableCell>
                       {live.activeQuestion ? (
                         p.answeredActive ? (
-                          <span className="text-emerald-700 font-medium text-sm">Respondió</span>
+                          <span className="text-viva-700 font-medium text-sm">Respondió</span>
                         ) : (
-                          <span className="text-amber-600 font-medium text-sm">Pendiente</span>
+                          <span className="text-energy-600 font-medium text-sm">Pendiente</span>
                         )
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>

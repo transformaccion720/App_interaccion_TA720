@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { BrandLogo } from '@/components/aulaviva/brand-logo'
 import { toast } from '@/hooks/use-toast'
 import {
   CheckSquare,
@@ -59,7 +60,6 @@ const FEATURES = [
 export default function Home() {
   const router = useRouter()
   const [code, setCode] = useState('')
-  const [creating, setCreating] = useState(false)
 
   function goJoin(e: React.FormEvent) {
     e.preventDefault()
@@ -71,32 +71,13 @@ export default function Home() {
     router.push(`/join?code=${encodeURIComponent(clean)}`)
   }
 
-  async function createDemo() {
-    setCreating(true)
-    try {
-      const res = await fetch('/api/demo', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error')
-      router.push(`/admin/${data.id}`)
-    } catch {
-      toast({ title: 'No se pudo crear la demo', variant: 'destructive' })
-      setCreating(false)
-    }
-  }
-
   return (
     <div className="flex flex-col min-h-screen">
       {/* Encabezado */}
       <header className="border-b bg-white/85 backdrop-blur sticky top-0 z-20">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 h-16">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-lg">
-              A
-            </span>
-            <div>
-              <p className="font-bold leading-none text-lg">AulaViva</p>
-              <p className="text-xs text-muted-foreground">Participación en clase</p>
-            </div>
+            <BrandLogo className="h-9 w-auto" />
           </div>
           <nav className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">
@@ -115,19 +96,19 @@ export default function Home() {
 
       <main className="flex-1">
         {/* Héroe corporativo */}
-        <section className="relative w-full bg-slate-950 text-white overflow-hidden">
+        <section className="relative w-full bg-carbon-950 text-white overflow-hidden">
           <div
-            className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(13,148,136,0.30),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(13,148,136,0.14),transparent_50%)]"
+            className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(0,102,255,0.30),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(0,102,255,0.14),transparent_50%)]"
             aria-hidden
           />
           <div className="relative max-w-6xl mx-auto px-4 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-400/10 border border-teal-300/25 text-teal-200 text-xs font-semibold px-3 py-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-400/10 border border-brand-300/25 text-brand-200 text-xs font-semibold px-3 py-1">
                 <Sparkles className="h-3.5 w-3.5" /> Interacción en vivo para el aula
               </span>
               <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-[1.1]">
                 Tu clase participando,{' '}
-                <span className="text-teal-300">en tiempo real</span>
+                <span className="text-brand-300">en tiempo real</span>
               </h1>
               <p className="text-lg text-slate-300 leading-relaxed max-w-xl">
                 Comparte un código o código QR: tus alumnos entran desde el celular sin instalar
@@ -135,37 +116,28 @@ export default function Home() {
                 instantáneos.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-1">
-                <Button asChild size="lg" className="min-h-11 bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold">
+                <Button asChild size="lg" className="min-h-11 bg-brand-500 hover:bg-brand-400 text-white font-semibold">
                   <Link href="/admin">
                     <ShieldCheck className="h-5 w-5 mr-2" />
                     Entrar como docente
                   </Link>
                 </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="min-h-11 border-slate-700 bg-white/5 text-slate-100 hover:bg-white/10 hover:text-white"
-                  onClick={createDemo}
-                  disabled={creating}
-                >
-                  {creating ? 'Creando…' : 'Ver una demo'}
-                </Button>
               </div>
               <p className="text-sm text-slate-400 flex flex-wrap gap-x-5 gap-y-1.5 pt-2">
                 <span className="flex items-center gap-1.5">
-                  <QrCode className="h-4 w-4 text-teal-300" /> Acceso por código o QR
+                  <QrCode className="h-4 w-4 text-brand-300" /> Acceso por código o QR
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Users className="h-4 w-4 text-teal-300" /> Hasta 100 alumnos por sesión
+                  <Users className="h-4 w-4 text-brand-300" /> Hasta 100 alumnos por sesión
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <LayoutDashboard className="h-4 w-4 text-teal-300" /> Panel en vivo
+                  <LayoutDashboard className="h-4 w-4 text-brand-300" /> Panel en vivo
                 </span>
               </p>
             </div>
 
             {/* Tarjeta de acceso rápido para estudiantes */}
-            <Card className="w-full max-w-md md:justify-self-end border-slate-700/60 bg-white text-foreground shadow-2xl shadow-teal-950/40">
+            <Card className="w-full max-w-md md:justify-self-end border-slate-700/60 bg-white text-foreground shadow-2xl shadow-brand-950/40">
               <CardHeader>
                 <CardTitle className="text-xl">¿Tienes un código?</CardTitle>
                 <CardDescription>Únete a la sesión de tu profesor. Sin cuenta.</CardDescription>
@@ -209,14 +181,14 @@ export default function Home() {
             {FEATURES.map((f) => (
               <Card
                 key={f.title}
-                className={`border-border/80 hover:border-teal-300 transition-colors ${
-                  f.highlight ? 'ring-1 ring-teal-200 bg-gradient-to-b from-teal-50/70 to-white' : ''
+                className={`border-border/80 hover:border-brand-300 transition-colors ${
+                  f.highlight ? 'ring-1 ring-brand-200 bg-gradient-to-b from-brand-50/70 to-white' : ''
                 }`}
               >
                 <CardHeader className="pb-2">
                   <span
                     className={`flex h-11 w-11 items-center justify-center rounded-xl mb-2 ${
-                      f.highlight ? 'bg-primary text-primary-foreground' : 'bg-teal-100 text-teal-800'
+                      f.highlight ? 'bg-primary text-primary-foreground' : 'bg-brand-100 text-brand-800'
                     }`}
                   >
                     <f.icon className="h-6 w-6" />
@@ -257,9 +229,9 @@ export default function Home() {
       {/* Pie de página */}
       <footer className="mt-auto border-t bg-white">
         <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
-          <p>
-            <span className="font-bold text-foreground">AulaViva</span> — participación en el aula en tiempo real
-          </p>
+          <div className="flex items-center gap-2">
+            <BrandLogo className="h-7 w-auto" />
+          </div>
           <div className="flex gap-4">
             <Link href="/join" className="hover:text-foreground">Unirme a una sesión</Link>
             <Link href="/admin" className="hover:text-foreground">Panel docente</Link>

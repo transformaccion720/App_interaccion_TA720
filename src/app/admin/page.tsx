@@ -2,6 +2,8 @@
 
 // /admin — inicio de sesión del docente y panel con sus sesiones.
 // Los alumnos NO inician sesión: entran con el código o QR desde /join.
+// El registro público está deshabilitado: solo el ADMIN crea cuentas
+// (docentes o moderadores) desde la gestión interna de usuarios.
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -11,7 +13,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { BrandLogo } from '@/components/aulaviva/brand-logo'
 import { toast } from '@/hooks/use-toast'
 import {
   Presentation,
@@ -28,12 +32,17 @@ import {
   CircleCheck,
   GraduationCap,
   ShieldCheck,
+  UserPlus,
+  KeyRound,
+  Trash2,
+  Info,
 } from 'lucide-react'
 
 interface TeacherInfo {
   id: string
   email: string
   name: string
+  role: 'ADMIN' | 'DOCENTE' | 'MODERADOR'
 }
 
 interface SessionSummary {
@@ -47,10 +56,25 @@ interface SessionSummary {
   _count: { questions: number; participants: number }
 }
 
+interface UserRow {
+  id: string
+  name: string
+  email: string
+  role: 'ADMIN' | 'DOCENTE' | 'MODERADOR'
+  createdAt: string
+  _count: { sessions: number }
+}
+
 const STATUS_META: Record<string, { label: string; cls: string }> = {
-  draft: { label: 'En preparación', cls: 'bg-amber-100 text-amber-800' },
-  live: { label: 'En curso', cls: 'bg-emerald-100 text-emerald-800' },
+  draft: { label: 'En preparación', cls: 'bg-energy-100 text-energy-800' },
+  live: { label: 'En curso', cls: 'bg-viva-100 text-viva-800' },
   closed: { label: 'Finalizada', cls: 'bg-slate-200 text-slate-700' },
+}
+
+const ROLE_META: Record<string, { label: string; cls: string }> = {
+  ADMIN: { label: 'Administrador', cls: 'bg-brand-100 text-brand-800' },
+  DOCENTE: { label: 'Docente', cls: 'bg-viva-100 text-viva-800' },
+  MODERADOR: { label: 'Moderador', cls: 'bg-energy-100 text-energy-800' },
 }
 
 export default function AdminPage() {
@@ -86,12 +110,13 @@ export default function AdminPage() {
 
   const stableLogout = useCallback(() => {
     void handleLogout()
+     
   }, [])
 
   if (view === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-200 border-t-teal-700" aria-label="Cargando" />
+      <div className="min-h-screen flex items-center justify-center bg-claro">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" aria-label="Cargando" />
       </div>
     )
   }
@@ -106,8 +131,6 @@ export default function AdminPage() {
 // ==================== VISTA: INICIO DE SESIÓN ====================
 
 function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -116,17 +139,17 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
     e.preventDefault()
     setBusy(true)
     try {
-      const res = await fetch(mode === 'login' ? '/api/auth/login' : '/api/auth/register', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mode === 'login' ? { email, password } : { name, email, password }),
+        body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
       if (!res.ok) {
         toast({ title: data.error || 'No se pudo iniciar sesión', variant: 'destructive' })
         return
       }
-      toast({ title: mode === 'login' ? `¡Hola de nuevo, ${data.teacher.name}!` : 'Cuenta creada. ¡Bienvenido/a!' })
+      toast({ title: `¡Hola de nuevo, ${data.teacher.name}!` })
       onLoggedIn(data.teacher)
     } catch {
       toast({ title: 'Error de conexión', variant: 'destructive' })
@@ -135,32 +158,20 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
     }
   }
 
-  function fillDemo() {
-    setMode('login')
-    setEmail('docente@aulaviva.app')
-    setPassword('AulaViva2026')
-  }
-
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Panel de marca (corporativo) */}
-      <aside className="relative lg:w-[46%] bg-slate-950 text-white overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(13,148,136,0.35),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(13,148,136,0.18),transparent_50%)]" aria-hidden />
+      <aside className="relative lg:w-[46%] bg-carbon-950 text-white overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(0,102,255,0.35),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(0,204,136,0.16),transparent_50%)]" aria-hidden />
         <div className="relative h-full flex flex-col justify-between p-8 lg:p-12 gap-10">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-500/90 font-black text-xl text-white shadow-lg shadow-teal-500/30">
-              A
-            </span>
-            <div>
-              <p className="font-bold text-lg leading-none">AulaViva</p>
-              <p className="text-sm text-teal-200/80">Participación en el aula en tiempo real</p>
-            </div>
+          <div className="bg-white rounded-xl inline-flex items-center px-3 py-2 self-start shadow-lg">
+            <BrandLogo className="h-10 w-auto" dark />
           </div>
 
           <div className="space-y-6 max-w-md">
             <h1 className="text-3xl lg:text-4xl font-extrabold leading-tight tracking-tight">
               El panel del docente,{' '}
-              <span className="text-teal-300">protegido y siempre a mano</span>
+              <span className="text-brand-300">protegido y siempre a mano</span>
             </h1>
             <p className="text-slate-300 leading-relaxed">
               Administra tus sesiones, lanza preguntas y mira los resultados en vivo. Tus alumnos
@@ -173,7 +184,7 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
                 { icon: Radio, t: 'Panel en vivo: conectados, respuestas y resultados' },
               ].map((f) => (
                 <li key={f.t} className="flex items-start gap-2.5">
-                  <f.icon className="h-4.5 w-4.5 mt-0.5 shrink-0 text-teal-300" />
+                  <f.icon className="h-4.5 w-4.5 mt-0.5 shrink-0 text-brand-300" />
                   <span>{f.t}</span>
                 </li>
               ))}
@@ -182,51 +193,26 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
 
           <p className="text-xs text-slate-400">
             ¿Eres estudiante? No necesitas cuenta:{' '}
-            <Link href="/join" className="text-teal-300 hover:underline">únete con el código de tu clase</Link>.
+            <Link href="/join" className="text-brand-300 hover:underline">únete con el código de tu clase</Link>.
           </p>
         </div>
       </aside>
 
       {/* Formulario */}
-      <main className="flex-1 flex items-center justify-center px-4 py-10 bg-gradient-to-b from-teal-50/60 to-white">
+      <main className="flex-1 flex items-center justify-center px-4 py-10 bg-claro">
         <div className="w-full max-w-md space-y-5">
-          <Card className="shadow-xl shadow-teal-100/60 border-teal-100">
+          <Card className="shadow-xl shadow-brand-100/60 border-brand-100">
             <CardHeader className="pb-2">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-teal-300 mb-1">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-carbon-950 text-brand-300 mb-1">
                 <GraduationCap className="h-6 w-6" />
               </span>
-              <CardTitle className="text-2xl">
-                {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta docente'}
-              </CardTitle>
+              <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
               <CardDescription>
-                {mode === 'login'
-                  ? 'Accede al panel de administración de AulaViva.'
-                  : 'Regístrate para crear y gestionar tus sesiones.'}
+                Accede al panel de administración de Transform Acción 720.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs value={mode} onValueChange={(v) => setMode(v as 'login' | 'register')} className="mb-5">
-                <TabsList className="grid grid-cols-2 w-full">
-                  <TabsTrigger value="login">Entrar</TabsTrigger>
-                  <TabsTrigger value="register">Crear cuenta</TabsTrigger>
-                </TabsList>
-              </Tabs>
-
               <form onSubmit={submit} className="space-y-4">
-                {mode === 'register' && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="login-name">Tu nombre</Label>
-                    <Input
-                      id="login-name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Ej.: Ana Martínez"
-                      maxLength={60}
-                      className="h-11"
-                      autoComplete="name"
-                    />
-                  </div>
-                )}
                 <div className="space-y-1.5">
                   <Label htmlFor="login-email">Correo electrónico</Label>
                   <Input
@@ -249,24 +235,21 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="h-11"
-                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    autoComplete="current-password"
                     minLength={6}
                     required
                   />
-                  {mode === 'register' && (
-                    <p className="text-xs text-muted-foreground">Mínimo 6 caracteres.</p>
-                  )}
                 </div>
                 <Button type="submit" size="lg" className="w-full min-h-12 text-base" disabled={busy}>
                   {busy ? (
                     <span className="flex items-center gap-2">
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      {mode === 'login' ? 'Entrando…' : 'Creando cuenta…'}
+                      Entrando…
                     </span>
                   ) : (
                     <>
                       <LogIn className="h-5 w-5 mr-1.5" />
-                      {mode === 'login' ? 'Entrar al panel' : 'Crear cuenta y entrar'}
+                      Entrar al panel
                     </>
                   )}
                 </Button>
@@ -274,18 +257,14 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
             </CardContent>
           </Card>
 
-          {/* Cuenta de demostración */}
-          <div className="rounded-xl border border-dashed border-teal-300 bg-teal-50/60 p-4 text-sm">
-            <p className="font-semibold flex items-center gap-1.5 mb-1">
-              <Sparkles className="h-4 w-4 text-teal-700" /> ¿Quieres probarla rápido?
+          {/* Aviso: el alta de cuentas es interna del administrador */}
+          <div className="rounded-xl border border-brand-100 bg-brand-50/70 p-4 text-sm flex gap-2.5">
+            <Info className="h-4.5 w-4.5 mt-0.5 shrink-0 text-brand-600" />
+            <p className="text-muted-foreground">
+              Las cuentas de <strong className="text-foreground">docente</strong> o{' '}
+              <strong className="text-foreground">moderador</strong> las crea internamente el
+              administrador de la plataforma. Si necesitas una, solicítala a tu administración.
             </p>
-            <p className="text-muted-foreground mb-2.5">
-              Cuenta de demostración: <code className="font-semibold text-foreground">docente@aulaviva.app</code> ·
-              contraseña <code className="font-semibold text-foreground">AulaViva2026</code>
-            </p>
-            <Button type="button" variant="secondary" size="sm" onClick={fillDemo}>
-              Rellenar con la cuenta demo
-            </Button>
           </div>
 
           <p className="text-center text-sm text-muted-foreground">
@@ -308,11 +287,82 @@ function Dashboard({
   onLogout: () => void
   router: ReturnType<typeof useRouter>
 }) {
+  const isAdmin = teacher.role === 'ADMIN'
+  const roleMeta = ROLE_META[teacher.role] || ROLE_META.DOCENTE
+
+  return (
+    <div className="min-h-screen flex flex-col bg-claro">
+      <header className="sticky top-0 z-20 border-b bg-carbon-950 text-white">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="bg-white rounded-lg px-2 py-1 shrink-0">
+              <BrandLogo className="h-7 w-auto" dark />
+            </div>
+            <div className="min-w-0 border-l border-white/15 pl-3">
+              <p className="font-bold leading-none">Panel docente</p>
+              <p className="text-xs text-slate-300 truncate">Transform Acción 720</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="hidden sm:flex items-center gap-1.5 text-sm text-slate-300">
+              <CircleCheck className="h-4 w-4 text-viva-400" />
+              {teacher.name}
+              <Badge variant="secondary" className={`${roleMeta.cls} ml-1`}>{roleMeta.label}</Badge>
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onLogout}
+              className="border-white/20 bg-transparent text-slate-200 hover:bg-white/10 hover:text-white"
+            >
+              <LogOut className="h-4 w-4 mr-1.5" /> Salir
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 py-8">
+        <Tabs defaultValue="sesiones">
+          <TabsList className="mb-5">
+            <TabsTrigger value="sesiones">
+              <Presentation className="h-4 w-4 mr-1.5" /> Mis sesiones
+            </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="usuarios">
+                <Users className="h-4 w-4 mr-1.5" /> Usuarios
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="sesiones">
+            <div className="grid lg:grid-cols-[1fr_360px] gap-6 items-start">
+              <SessionsList isAdmin={isAdmin} router={router} />
+              <NewSessionCard />
+            </div>
+          </TabsContent>
+
+          {isAdmin && <TabsContent value="usuarios"><UsersAdmin /></TabsContent>}
+        </Tabs>
+      </main>
+
+      <footer className="mt-auto border-t bg-white py-4 text-center text-xs text-muted-foreground">
+        Transform Acción 720 — panel docente ·{' '}
+        <Link href="/join" className="hover:text-foreground">¿Tienes un código? Únete aquí</Link>
+      </footer>
+    </div>
+  )
+}
+
+// ==================== SECCIÓN: MIS SESIONES ====================
+
+function SessionsList({
+  isAdmin,
+  router,
+}: {
+  isAdmin: boolean
+  router: ReturnType<typeof useRouter>
+}) {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null)
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [max, setMax] = useState(100)
-  const [creating, setCreating] = useState(false)
   const [demoBusy, setDemoBusy] = useState(false)
   const [legacyCode, setLegacyCode] = useState('')
   const [legacyBusy, setLegacyBusy] = useState(false)
@@ -321,7 +371,8 @@ function Dashboard({
     try {
       const res = await fetch('/api/sessions', { cache: 'no-store' })
       if (res.status === 401) {
-        onLogout()
+        await fetch('/api/auth/logout', { method: 'POST' })
+        window.location.reload()
         return
       }
       const data = await res.json()
@@ -329,38 +380,11 @@ function Dashboard({
     } catch {
       setSessions([])
     }
-  }, [onLogout])
+  }, [])
 
   useEffect(() => {
     loadSessions()
   }, [loadSessions])
-
-  async function createSession(e: React.FormEvent) {
-    e.preventDefault()
-    if (!title.trim()) {
-      toast({ title: 'Ponle un título a tu sesión', variant: 'destructive' })
-      return
-    }
-    setCreating(true)
-    try {
-      const res = await fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, maxParticipants: max }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast({ title: data.error || 'No se pudo crear la sesión', variant: 'destructive' })
-        return
-      }
-      toast({ title: 'Sesión creada', description: 'Añade preguntas y comparte el código.' })
-      router.push(`/admin/${data.id}`)
-    } catch {
-      toast({ title: 'Error de conexión', variant: 'destructive' })
-    } finally {
-      setCreating(false)
-    }
-  }
 
   async function createDemo() {
     setDemoBusy(true)
@@ -368,6 +392,7 @@ function Dashboard({
       const res = await fetch('/api/demo', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error')
+      toast({ title: 'Demo creada', description: 'Explora los 6 tipos de preguntas.' })
       router.push(`/admin/${data.id}`)
     } catch {
       toast({ title: 'No se pudo crear la demo', variant: 'destructive' })
@@ -400,202 +425,447 @@ function Dashboard({
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      {/* Barra superior */}
-      <header className="sticky top-0 z-20 border-b bg-slate-950 text-white">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-500/90 font-black text-lg shrink-0">
-              A
-            </span>
-            <div className="min-w-0">
-              <p className="font-bold leading-none">AulaViva</p>
-              <p className="text-xs text-teal-200/80 truncate">Panel del docente</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <span className="hidden sm:flex items-center gap-1.5 text-sm text-slate-300">
-              <CircleCheck className="h-4 w-4 text-teal-400" />
-              {teacher.name}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onLogout}
-              className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white"
-            >
-              <LogOut className="h-4 w-4 mr-1.5" /> Salir
-            </Button>
-          </div>
+    <section className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-bold">Mis sesiones</h2>
+        {isAdmin && (
+          <Button variant="secondary" size="sm" onClick={createDemo} disabled={demoBusy}>
+            <Sparkles className="h-4 w-4 mr-1.5" />
+            {demoBusy ? 'Creando…' : 'Crear demo'}
+          </Button>
+        )}
+      </div>
+
+      {sessions === null && (
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-24 rounded-2xl bg-muted animate-pulse" />
+          ))}
         </div>
-      </header>
+      )}
 
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 py-8 grid lg:grid-cols-[1fr_360px] gap-6 items-start">
-        {/* Mis sesiones */}
-        <section className="space-y-4 order-2 lg:order-1">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-bold">Mis sesiones</h2>
-            <Button variant="secondary" size="sm" onClick={createDemo} disabled={demoBusy}>
-              <Sparkles className="h-4 w-4 mr-1.5" />
-              {demoBusy ? 'Creando…' : 'Crear demo'}
-            </Button>
-          </div>
+      {sessions !== null && sessions.length === 0 && (
+        <div className="rounded-2xl border border-dashed p-10 text-center bg-card space-y-2">
+          <Presentation className="h-10 w-10 mx-auto text-brand-600" />
+          <h3 className="font-bold text-lg">Aún no tienes sesiones</h3>
+          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+            Crea tu primera sesión con el formulario de la derecha
+            {isAdmin ? ', o genera una demo con los 6 tipos de preguntas ya listos.' : '.'}
+          </p>
+        </div>
+      )}
 
-          {sessions === null && (
-            <div className="space-y-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-24 rounded-2xl bg-muted animate-pulse" />
-              ))}
-            </div>
-          )}
-
-          {sessions !== null && sessions.length === 0 && (
-            <div className="rounded-2xl border border-dashed p-10 text-center bg-card space-y-2">
-              <Presentation className="h-10 w-10 mx-auto text-teal-600" />
-              <h3 className="font-bold text-lg">Aún no tienes sesiones</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                Crea tu primera sesión con el formulario de la derecha, o genera una demo con los
-                6 tipos de preguntas ya listos.
-              </p>
-            </div>
-          )}
-
-          {sessions !== null && sessions.length > 0 && (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {sessions.map((s) => {
-                const st = STATUS_META[s.status] || STATUS_META.draft
-                return (
-                  <div
-                    key={s.id}
-                    className="group rounded-2xl border bg-card p-5 flex flex-col gap-3 hover:border-teal-300 hover:shadow-md hover:shadow-teal-100/60 transition-all"
+      {sessions !== null && sessions.length > 0 && (
+        <div className="grid sm:grid-cols-2 gap-4">
+          {sessions.map((s) => {
+            const st = STATUS_META[s.status] || STATUS_META.draft
+            return (
+              <div
+                key={s.id}
+                className="group rounded-2xl border bg-card p-5 flex flex-col gap-3 hover:border-brand-300 hover:shadow-md hover:shadow-brand-100/60 transition-all"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-bold leading-snug line-clamp-2">{s.title}</h3>
+                  <Badge variant="secondary" className={`${st.cls} shrink-0`}>{st.label}</Badge>
+                </div>
+                {s.description && (
+                  <p className="text-sm text-muted-foreground line-clamp-2">{s.description}</p>
+                )}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <button
+                    className="flex items-center gap-1 font-semibold text-foreground hover:text-brand-700"
+                    title="Copiar código de acceso"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(s.joinCode)
+                      toast({ title: 'Código copiado' })
+                    }}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold leading-snug line-clamp-2">{s.title}</h3>
-                      <Badge variant="secondary" className={`${st.cls} shrink-0`}>{st.label}</Badge>
-                    </div>
-                    {s.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">{s.description}</p>
-                    )}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <button
-                        className="flex items-center gap-1 font-semibold text-foreground hover:text-teal-700"
-                        title="Copiar código de acceso"
-                        onClick={() => {
-                          navigator.clipboard?.writeText(s.joinCode)
-                          toast({ title: 'Código copiado' })
-                        }}
-                      >
-                        <QrCode className="h-3.5 w-3.5" /> Código: {s.joinCode}
-                        <ClipboardCopy className="h-3 w-3" />
-                      </button>
-                      <span className="flex items-center gap-1">
-                        <ListChecks className="h-3.5 w-3.5" /> {s._count.questions} preguntas
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" /> {s._count.participants}/{s.maxParticipants}
-                      </span>
-                    </div>
-                    <Button
-                      className="w-full mt-auto group-hover:bg-primary"
-                      onClick={() => router.push(`/admin/${s.id}`)}
-                    >
-                      Abrir panel <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
-                  </div>
-                )
-              })}
+                    <QrCode className="h-3.5 w-3.5" /> Código: {s.joinCode}
+                    <ClipboardCopy className="h-3 w-3" />
+                  </button>
+                  <span className="flex items-center gap-1">
+                    <ListChecks className="h-3.5 w-3.5" /> {s._count.questions} preguntas
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3.5 w-3.5" /> {s._count.participants}/{s.maxParticipants}
+                  </span>
+                </div>
+                <Button
+                  className="w-full mt-auto group-hover:bg-brand-600"
+                  onClick={() => router.push(`/admin/${s.id}`)}
+                >
+                  Abrir panel <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Abrir con código de administrador</CardTitle>
+          <CardDescription>
+            Para sesiones creadas antes del inicio de sesión o compartidas por otro docente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={openLegacy} className="flex gap-2">
+            <Input
+              value={legacyCode}
+              onChange={(e) => setLegacyCode(e.target.value.toUpperCase())}
+              placeholder="ABCDEFGH"
+              maxLength={8}
+              className="h-11 text-center font-bold tracking-[0.2em] uppercase"
+              autoComplete="off"
+              aria-label="Código de administrador"
+            />
+            <Button type="submit" variant="outline" className="h-11 shrink-0" disabled={legacyBusy}>
+              Abrir
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </section>
+  )
+}
+
+// ==================== SECCIÓN: NUEVA SESIÓN ====================
+
+function NewSessionCard() {
+  const router = useRouter()
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [max, setMax] = useState(100)
+  const [creating, setCreating] = useState(false)
+
+  async function createSession(e: React.FormEvent) {
+    e.preventDefault()
+    if (!title.trim()) {
+      toast({ title: 'Ponle un título a tu sesión', variant: 'destructive' })
+      return
+    }
+    setCreating(true)
+    try {
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description, maxParticipants: max }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({ title: data.error || 'No se pudo crear la sesión', variant: 'destructive' })
+        return
+      }
+      toast({ title: 'Sesión creada', description: 'Añade preguntas y comparte el código.' })
+      router.push(`/admin/${data.id}`)
+    } catch {
+      toast({ title: 'Error de conexión', variant: 'destructive' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  return (
+    <Card className="shadow-lg shadow-brand-100/50 border-brand-100">
+      <CardHeader className="pb-2">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground mb-1">
+          <Presentation className="h-6 w-6" />
+        </span>
+        <CardTitle className="text-xl">Nueva sesión</CardTitle>
+        <CardDescription>
+          Se asociará a tu cuenta y compartirás el código o QR con tus alumnos.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={createSession} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="s-title">Título de la sesión</Label>
+            <Input
+              id="s-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ej.: Clase 1 — Diagnóstico IA"
+              maxLength={120}
+              className="h-11"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-desc">Descripción (opcional)</Label>
+            <Textarea
+              id="s-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Tema, grupo, indicaciones…"
+              rows={2}
+              maxLength={300}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-max">Máximo de participantes</Label>
+            <Input
+              id="s-max"
+              type="number"
+              min={2}
+              max={500}
+              value={max}
+              onChange={(e) => setMax(Number(e.target.value))}
+              className="h-11 w-32"
+            />
+            <p className="text-xs text-muted-foreground">Por defecto, 100 alumnos.</p>
+          </div>
+          <Button type="submit" size="lg" className="w-full min-h-11" disabled={creating}>
+            <Plus className="h-5 w-5 mr-1.5" />
+            {creating ? 'Creando…' : 'Crear sesión'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ==================== SECCIÓN: GESTIÓN DE USUARIOS (SOLO ADMIN) ====================
+
+function UsersAdmin() {
+  const [users, setUsers] = useState<UserRow[] | null>(null)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [role, setRole] = useState<'DOCENTE' | 'MODERADOR'>('DOCENTE')
+  const [busy, setBusy] = useState(false)
+
+  const loadUsers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/users', { cache: 'no-store' })
+      if (!res.ok) {
+        setUsers([])
+        return
+      }
+      const data = await res.json()
+      setUsers(data.users || [])
+    } catch {
+      setUsers([])
+    }
+  }, [])
+
+  useEffect(() => {
+    loadUsers()
+  }, [loadUsers])
+
+  async function createUser(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim() || !email.trim() || password.length < 6) {
+      toast({
+        title: 'Completa los datos',
+        description: 'Nombre, correo y contraseña (mín. 6 caracteres).',
+        variant: 'destructive',
+      })
+      return
+    }
+    setBusy(true)
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, role }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({ title: data.error || 'No se pudo crear la cuenta', variant: 'destructive' })
+        return
+      }
+      toast({
+        title: 'Cuenta creada',
+        description: `${data.teacher.email} ya puede iniciar sesión como ${role === 'DOCENTE' ? 'docente' : 'moderador'}.`,
+      })
+      setName(''); setEmail(''); setPassword(''); setRole('DOCENTE')
+      await loadUsers()
+    } catch {
+      toast({ title: 'Error de conexión', variant: 'destructive' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function resetPassword(u: UserRow) {
+    const next = window.prompt(`Nueva contraseña para ${u.email} (mín. 6 caracteres):`)
+    if (!next) return
+    if (next.length < 6) {
+      toast({ title: 'La contraseña debe tener al menos 6 caracteres', variant: 'destructive' })
+      return
+    }
+    const res = await fetch(`/api/users/${u.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: next }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      toast({ title: data.error || 'No se pudo actualizar', variant: 'destructive' })
+      return
+    }
+    toast({ title: 'Contraseña actualizada', description: u.email })
+  }
+
+  async function changeRole(u: UserRow, newRole: string) {
+    const res = await fetch(`/api/users/${u.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: newRole }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      toast({ title: data.error || 'No se pudo actualizar el rol', variant: 'destructive' })
+      return
+    }
+    toast({ title: 'Rol actualizado', description: `${u.email} ahora es ${ROLE_META[newRole]?.label || newRole}` })
+    await loadUsers()
+  }
+
+  async function removeUser(u: UserRow) {
+    if (!window.confirm(`¿Eliminar la cuenta de ${u.email}? Sus sesiones quedarán sin dueño.`)) return
+    const res = await fetch(`/api/users/${u.id}`, { method: 'DELETE' })
+    const data = await res.json()
+    if (!res.ok) {
+      toast({ title: data.error || 'No se pudo eliminar', variant: 'destructive' })
+      return
+    }
+    toast({ title: 'Cuenta eliminada', description: u.email })
+    await loadUsers()
+  }
+
+  return (
+    <div className="grid lg:grid-cols-[360px_1fr] gap-6 items-start">
+      {/* Formulario: crear cuenta interna */}
+      <Card className="shadow-lg shadow-brand-100/50 border-brand-100">
+        <CardHeader className="pb-2">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground mb-1">
+            <UserPlus className="h-6 w-6" />
+          </span>
+          <CardTitle className="text-xl">Crear usuario interno</CardTitle>
+          <CardDescription>
+            Genera cuentas de docente o moderador. Esta opción solo es visible para el administrador.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={createUser} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="u-name">Nombre completo</Label>
+              <Input
+                id="u-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ej.: Ana Martínez"
+                maxLength={60}
+                className="h-11"
+              />
             </div>
-          )}
-        </section>
+            <div className="space-y-1.5">
+              <Label htmlFor="u-email">Correo electrónico</Label>
+              <Input
+                id="u-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="docente@ejemplo.com"
+                className="h-11"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="u-pass">Contraseña temporal</Label>
+              <Input
+                id="u-pass"
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                className="h-11"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Rol de la cuenta</Label>
+              <Select value={role} onValueChange={(v) => setRole(v as 'DOCENTE' | 'MODERADOR')}>
+                <SelectTrigger className="h-11 w-full">
+                  <SelectValue placeholder="Selecciona el rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DOCENTE">Docente — crea y gestiona sus sesiones</SelectItem>
+                  <SelectItem value="MODERADOR">Moderador — apoya la gestión en vivo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" size="lg" className="w-full min-h-11" disabled={busy}>
+              <UserPlus className="h-5 w-5 mr-1.5" />
+              {busy ? 'Creando…' : 'Crear cuenta'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-        {/* Columna lateral: nueva sesión + código heredado */}
-        <aside className="space-y-5 order-1 lg:order-2">
-          <Card className="shadow-lg shadow-teal-100/50 border-teal-100">
-            <CardHeader className="pb-2">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground mb-1">
-                <Presentation className="h-6 w-6" />
-              </span>
-              <CardTitle className="text-xl">Nueva sesión</CardTitle>
-              <CardDescription>
-                Se asociará a tu cuenta y compartirás el código o QR con tus alumnos.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={createSession} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="s-title">Título de la sesión</Label>
-                  <Input
-                    id="s-title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Ej.: Clase 1 — Diagnóstico IA"
-                    maxLength={120}
-                    className="h-11"
-                  />
+      {/* Listado de cuentas */}
+      <section className="space-y-3">
+        <h2 className="text-xl font-bold">Cuentas registradas</h2>
+        {users === null && (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-16 rounded-2xl bg-muted animate-pulse" />
+            ))}
+          </div>
+        )}
+        {users !== null && users.length === 0 && (
+          <div className="rounded-2xl border border-dashed p-8 text-center bg-card text-sm text-muted-foreground">
+            Aún no hay cuentas creadas.
+          </div>
+        )}
+        {users !== null && users.map((u) => {
+          const rm = ROLE_META[u.role] || ROLE_META.DOCENTE
+          return (
+            <div key={u.id} className="rounded-2xl border bg-card p-4 flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold truncate">{u.name}</p>
+                  <Badge variant="secondary" className={`${rm.cls} shrink-0`}>{rm.label}</Badge>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="s-desc">Descripción (opcional)</Label>
-                  <Textarea
-                    id="s-desc"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Tema, grupo, indicaciones…"
-                    rows={2}
-                    maxLength={300}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="s-max">Máximo de participantes</Label>
-                  <Input
-                    id="s-max"
-                    type="number"
-                    min={2}
-                    max={500}
-                    value={max}
-                    onChange={(e) => setMax(Number(e.target.value))}
-                    className="h-11 w-32"
-                  />
-                  <p className="text-xs text-muted-foreground">Por defecto, 100 alumnos.</p>
-                </div>
-                <Button type="submit" size="lg" className="w-full min-h-11" disabled={creating}>
-                  <Plus className="h-5 w-5 mr-1.5" />
-                  {creating ? 'Creando…' : 'Crear sesión'}
+                <p className="text-xs text-muted-foreground truncate">
+                  {u.email} · {u._count.sessions} {u._count.sessions === 1 ? 'sesión' : 'sesiones'}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Select value={u.role} onValueChange={(v) => changeRole(u, v)}>
+                  <SelectTrigger className="h-8 w-[130px] text-xs" aria-label="Cambiar rol">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ADMIN">Administrador</SelectItem>
+                    <SelectItem value="DOCENTE">Docente</SelectItem>
+                    <SelectItem value="MODERADOR">Moderador</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  title="Restablecer contraseña"
+                  onClick={() => resetPassword(u)}
+                >
+                  <KeyRound className="h-4 w-4" />
                 </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Abrir con código de administrador</CardTitle>
-              <CardDescription>
-                Para sesiones creadas antes del inicio de sesión o compartidas por otro docente.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={openLegacy} className="flex gap-2">
-                <Input
-                  value={legacyCode}
-                  onChange={(e) => setLegacyCode(e.target.value.toUpperCase())}
-                  placeholder="ABCDEFGH"
-                  maxLength={8}
-                  className="h-11 text-center font-bold tracking-[0.2em] uppercase"
-                  autoComplete="off"
-                  aria-label="Código de administrador"
-                />
-                <Button type="submit" variant="outline" className="h-11 shrink-0" disabled={legacyBusy}>
-                  Abrir
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 text-red-600 hover:text-red-700"
+                  title="Eliminar cuenta"
+                  onClick={() => removeUser(u)}
+                >
+                  <Trash2 className="h-4 w-4" />
                 </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </aside>
-      </main>
-
-      <footer className="mt-auto border-t bg-white py-4 text-center text-xs text-muted-foreground">
-        AulaViva — panel del docente ·{' '}
-        <Link href="/join" className="hover:text-foreground">¿Tienes un código? Únete aquí</Link>
-      </footer>
+              </div>
+            </div>
+          )
+        })}
+      </section>
     </div>
   )
 }

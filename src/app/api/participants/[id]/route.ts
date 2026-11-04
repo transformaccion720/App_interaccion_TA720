@@ -1,6 +1,6 @@
 // DELETE /api/participants/[id] — el docente elimina a un participante de la sesión
 import { db } from '@/lib/db'
-import { jsonError, verifyAdmin } from '@/lib/api-helpers'
+import { jsonError, verifyAdmin, verifyAdminAccess } from '@/lib/api-helpers'
 
 export async function DELETE(
   req: Request,

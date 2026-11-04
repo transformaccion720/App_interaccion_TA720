@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { BrandLogo } from '@/components/aulaviva/brand-logo'
 import { toast } from '@/hooks/use-toast'
 import { LogIn, ArrowLeft } from 'lucide-react'
 
@@ -65,7 +66,7 @@ function JoinForm() {
   }
 
   return (
-    <Card className="w-full max-w-md shadow-lg shadow-teal-100/50">
+    <Card className="w-full max-w-md shadow-lg shadow-brand-100/50">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Unirme a una sesión</CardTitle>
         <CardDescription>Ingresa el código que te compartió tu profesor</CardDescription>
@@ -122,13 +123,14 @@ function JoinForm() {
 
 export default function JoinPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-teal-50 to-white">
-      <header className="px-4 py-4">
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
+    <div className="min-h-screen flex flex-col bg-claro">
+      <header className="px-4 py-4 flex items-center justify-between">
+        <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link href="/">
             <ArrowLeft className="h-4 w-4 mr-1" /> Inicio
           </Link>
         </Button>
+        <BrandLogo className="h-8 w-auto" />
       </header>
       <main className="flex-1 flex items-start sm:items-center justify-center px-4 pb-16">
         <Suspense fallback={null}>
@@ -136,7 +138,7 @@ export default function JoinPage() {
         </Suspense>
       </main>
       <footer className="mt-auto py-4 text-center text-xs text-muted-foreground">
-        AulaViva — participación en el aula en tiempo real
+        Transform Acción 720 — participación en el aula en tiempo real
       </footer>
     </div>
   )

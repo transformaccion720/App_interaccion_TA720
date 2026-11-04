@@ -17,24 +17,41 @@ datasource db {
   directUrl = env("DIRECT_URL")        // cadena directa de Neon (para db push / migraciones)
 }
 
+// DOCENTE / ADMINISTRADOR — inicia sesión con correo y contraseña.
+// Los participantes NO necesitan cuenta: entran con el código o QR de la sesión.
+model Teacher {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String // scrypt: "salt:hash" en hexadecimal
+  role         String    @default("DOCENTE") // ADMIN | DOCENTE | MODERADOR
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+
+  @@index([email])
+}
+
 // SESIÓN / PRESENTACIÓN (creada por el docente)
 model Session {
   id              String       @id @default(cuid())
   title           String
   description     String?
-  joinCode        String       @unique
-  adminCode       String       @unique
+  joinCode        String       @unique // código de 6 caracteres para los asistentes
+  adminCode       String       @unique // código de 8 caracteres para el panel docente
   maxParticipants Int          @default(100)
   status          String       @default("draft") // draft | live | closed
+  teacherId       String? // docente propietario (opcional: sesiones demo sin dueño)
+  teacher         Teacher?     @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   questions       Question[]
   participants    Participant[]
 
   @@index([joinCode])
+  @@index([teacherId])
 }
 
-// PREGUNTA (multiple_choice | semaforo | word_cloud | decision_tree | open_text)
+// PREGUNTA (6 tipos: multiple_choice | semaforo | word_cloud | decision_tree | open_text | diagnostico)
 model Question {
   id           String    @id @default(cuid())
   sessionId    String
@@ -42,12 +59,12 @@ model Question {
   order        Int       @default(0)
   title        String
   description  String?
-  imageUrl     String?
+  imageUrl     String? // data URL (base64) o URL externa — adjunto opcional
   type         String
-  config       String    @default("{}")
+  config       String    @default("{}") // JSON según el tipo de pregunta
   state        String    @default("pending") // pending | open | revealed | closed
   openedAt     DateTime?
-  timerSeconds Int?
+  timerSeconds Int? // cierre automático opcional
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   answers      Answer[]
@@ -61,7 +78,7 @@ model Participant {
   sessionId  String
   session    Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   name       String
-  token      String    @unique
+  token      String    @unique // identificador privado guardado en el navegador
   lastSeenAt DateTime  @default(now())
   createdAt  DateTime  @default(now())
   answers    Answer[]
@@ -69,14 +86,14 @@ model Participant {
   @@index([sessionId])
 }
 
-// RESPUESTA (una por participante y pregunta)
+// RESPUESTA (una por participante y pregunta; se actualiza si cambia su voto)
 model Answer {
   id            String      @id @default(cuid())
   questionId    String
   question      Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
   participantId String
   participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  payload       String      @default("{}")
+  payload       String      @default("{}") // JSON según el tipo de pregunta
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 

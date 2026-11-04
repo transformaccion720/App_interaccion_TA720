@@ -126,14 +126,14 @@ export default function AdminSessionPage() {
   if (authState === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-200 border-t-teal-600" aria-label="Cargando" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" aria-label="Cargando" />
       </div>
     )
   }
 
   if (authState === 'need-code') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-teal-50 to-white px-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-brand-50 to-white px-4">
         <div className="w-full max-w-sm space-y-4 text-center">
           <h1 className="text-2xl font-bold">Panel del docente</h1>
           <p className="text-sm text-muted-foreground">
@@ -315,17 +315,17 @@ export default function AdminSessionPage() {
   if (!live) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-200 border-t-teal-600" aria-label="Cargando" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" aria-label="Cargando" />
       </div>
     )
   }
 
   const statusInfo =
     live.session.status === 'live'
-      ? { label: 'En curso', cls: 'bg-emerald-100 text-emerald-800' }
+      ? { label: 'En curso', cls: 'bg-viva-100 text-viva-800' }
       : live.session.status === 'closed'
         ? { label: 'Finalizada', cls: 'bg-red-100 text-red-700' }
-        : { label: 'Preparación', cls: 'bg-amber-100 text-amber-800' }
+        : { label: 'Preparación', cls: 'bg-energy-100 text-energy-800' }
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -357,7 +357,7 @@ export default function AdminSessionPage() {
               <span className="flex items-center gap-1">
                 <Users className="h-3.5 w-3.5" /> {live.participants.length}/{live.session.maxParticipants}
               </span>
-              <span className="flex items-center gap-1 text-emerald-700 font-medium">
+              <span className="flex items-center gap-1 text-viva-700 font-medium">
                 <Wifi className="h-3.5 w-3.5" /> {live.onlineCount} en línea
               </span>
               {connectionError && <span className="text-destructive">· reconectando…</span>}
@@ -442,7 +442,7 @@ export default function AdminSessionPage() {
               <p className="flex items-center gap-1">
                 Tu código de administrador:
                 <button
-                  className="flex items-center gap-1 font-bold text-foreground tracking-wider hover:text-teal-700"
+                  className="flex items-center gap-1 font-bold text-foreground tracking-wider hover:text-brand-700"
                   onClick={() => {
                     navigator.clipboard?.writeText(live.session.adminCode)
                     toast({ title: 'Código de administrador copiado' })
@@ -462,7 +462,7 @@ export default function AdminSessionPage() {
       </Dialog>
 
       <footer className="mt-auto border-t bg-white py-3 text-center text-xs text-muted-foreground">
-        AulaViva — panel docente · {live.session.title}
+        Transform Acción 720 — panel docente · {live.session.title}
       </footer>
     </div>
   )

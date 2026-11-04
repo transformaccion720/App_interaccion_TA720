@@ -37,9 +37,9 @@ import {
 
 const STATE_BADGE: Record<string, { label: string; cls: string }> = {
   pending: { label: 'Pendiente', cls: 'bg-muted text-muted-foreground' },
-  open: { label: 'Activa', cls: 'bg-emerald-100 text-emerald-800' },
+  open: { label: 'Activa', cls: 'bg-viva-100 text-viva-800' },
   revealed: { label: 'Resultados visibles', cls: 'bg-violet-100 text-violet-800' },
-  closed: { label: 'Cerrada', cls: 'bg-amber-100 text-amber-800' },
+  closed: { label: 'Cerrada', cls: 'bg-energy-100 text-energy-800' },
 }
 
 export function QuestionsTab({
@@ -123,9 +123,9 @@ export function QuestionsTab({
                 key={type}
                 type="button"
                 onClick={() => openCreate(type)}
-                className="group flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition-colors hover:border-teal-400 hover:bg-teal-50/50 min-h-11"
+                className="group flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition-colors hover:border-brand-400 hover:bg-brand-50/50 min-h-11"
               >
-                <Icon className="h-5 w-5 text-teal-700" />
+                <Icon className="h-5 w-5 text-brand-700" />
                 <span className="text-sm font-semibold leading-tight">{QUESTION_TYPE_LABELS[type]}</span>
                 <span className="text-xs text-muted-foreground leading-tight">{Meta.desc}</span>
               </button>
@@ -147,7 +147,7 @@ export function QuestionsTab({
           const Icon = TYPE_META[q.type].icon
           return (
             <div key={q.id} className="rounded-xl border bg-card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 font-bold text-sm">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 font-bold text-sm">
                 {i + 1}
               </span>
               <div className="min-w-0 flex-1">

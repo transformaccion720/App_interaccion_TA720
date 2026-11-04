@@ -1,7 +1,11 @@
 // POST /api/auth/login — inicia sesión del docente y deja la cookie de sesión
 import { db } from '@/lib/db'
 import { jsonError } from '@/lib/api-helpers'
-import { verifyPassword, createSessionToken, SESSION_COOKIE, SESSION_COOKIE_OPTIONS } from '@/lib/auth'
+import {
+  verifyPassword,
+  createSessionToken,
+  sessionCookieString,
+} from '@/lib/auth'
 
 export async function POST(req: Request) {
   try {
@@ -18,13 +22,16 @@ export async function POST(req: Request) {
 
     const res = Response.json({
       ok: true,
-      teacher: { id: teacher.id, email: teacher.email, name: teacher.name },
+      teacher: {
+        id: teacher.id,
+        email: teacher.email,
+        name: teacher.name,
+        role: teacher.role || 'DOCENTE',
+      },
     })
     const headers = new Headers(res.headers)
-    headers.append(
-      'Set-Cookie',
-      `${SESSION_COOKIE}=${createSessionToken(teacher)}; Path=${SESSION_COOKIE_OPTIONS.path}; Max-Age=${SESSION_COOKIE_OPTIONS.maxAge}; HttpOnly; SameSite=Lax${SESSION_COOKIE_OPTIONS.secure ? '; Secure' : ''}`
-    )
+    // Cookie con SameSite=None+Secure en HTTPS (funciona en iframes embebidos)
+    headers.append('Set-Cookie', sessionCookieString(req, createSessionToken(teacher)))
     return new Response(res.body, { status: 200, headers })
   } catch (err) {
     console.error('[login] error:', err)

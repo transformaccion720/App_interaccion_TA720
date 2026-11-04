@@ -1,11 +1,9 @@
 // POST /api/auth/logout — cierra la sesión del docente
-import { SESSION_COOKIE } from '@/lib/auth'
+import { clearSessionCookieString } from '@/lib/auth'
 
-export async function POST() {
-  const headers = new Headers()
-  headers.append('Set-Cookie', `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`)
-  return new Response(JSON.stringify({ ok: true }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json', 'Set-Cookie': `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax` },
-  })
+export async function POST(req: Request) {
+  const headers = new Headers({ 'Content-Type': 'application/json' })
+  // Borra la cookie con los mismos atributos con los que se creó
+  headers.append('Set-Cookie', clearSessionCookieString(req))
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers })
 }

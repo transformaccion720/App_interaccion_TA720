@@ -36,8 +36,9 @@ export async function verifyAdminAccess(
   return verifyAdmin(sessionId, adminCode)
 }
 
-// Cierra automáticamente la pregunta activa si su temporizador expiró
-export async function maybeAutoClose(question: Question): Promise<Question> {
+// Cierra automáticamente la pregunta activa si su temporizador expiró.
+// Genérica: conserva las propiedades extra (p. ej. answers incluidas).
+export async function maybeAutoClose<T extends Question>(question: T): Promise<T> {
   if (
     question.state === 'open' &&
     question.openedAt &&
@@ -50,7 +51,8 @@ export async function maybeAutoClose(question: Question): Promise<Question> {
         where: { id: question.id },
         data: { state: 'closed' },
       })
-      return updated
+      // El update devuelve el modelo base; conservamos el tipo con includes del llamador
+      return { ...question, state: updated.state } as T
     }
   }
   return question

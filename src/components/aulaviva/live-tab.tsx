@@ -42,7 +42,7 @@ export function LiveTab({
       <div className="space-y-4">
         {!active && (
           <div className="rounded-2xl border border-dashed p-8 text-center space-y-4 bg-card">
-            <Hourglass className="h-10 w-10 mx-auto text-teal-600" />
+            <Hourglass className="h-10 w-10 mx-auto text-brand-600" />
             <div className="space-y-1.5">
               <h3 className="font-bold text-lg">Sin pregunta activa</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
@@ -55,7 +55,7 @@ export function LiveTab({
               <div className="space-y-2 max-w-lg mx-auto pt-2 text-left">
                 {live.questions.map((q, i) => (
                   <div key={q.id} className="flex items-center gap-3 rounded-xl border bg-white p-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 text-sm font-bold">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 text-sm font-bold">
                       {i + 1}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -85,12 +85,12 @@ export function LiveTab({
             {/* Controles del docente */}
             <div className="rounded-2xl border bg-card p-5 space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="bg-teal-100 text-teal-800">{draftType}</Badge>
+                <Badge variant="secondary" className="bg-brand-100 text-brand-800">{draftType}</Badge>
                 <Badge
                   variant="secondary"
                   className={
                     active.state === 'open'
-                      ? 'bg-emerald-100 text-emerald-800'
+                      ? 'bg-viva-100 text-viva-800'
                       : active.state === 'revealed'
                         ? 'bg-violet-100 text-violet-800'
                         : 'bg-muted'
@@ -165,12 +165,12 @@ export function LiveTab({
       <aside className="space-y-4">
         <div className="rounded-2xl border bg-card p-5">
           <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
-            <CircleDashed className="h-4 w-4 text-amber-500" />
+            <CircleDashed className="h-4 w-4 text-energy-500" />
             Sin responder {active ? `(${live.notAnsweredActive.length})` : ''}
           </h3>
           {!active && <p className="text-xs text-muted-foreground">Activa una pregunta para ver quién falta.</p>}
           {active && live.notAnsweredActive.length === 0 && (
-            <p className="text-xs text-emerald-700 flex items-center gap-1.5 font-medium">
+            <p className="text-xs text-viva-700 flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="h-4 w-4" /> ¡Todos respondieron!
             </p>
           )}
@@ -196,7 +196,7 @@ export function LiveTab({
             </li>
             <li className="flex justify-between">
               <span>En línea ahora</span>
-              <span className="font-semibold text-emerald-700 tabular-nums">{live.onlineCount}</span>
+              <span className="font-semibold text-viva-700 tabular-nums">{live.onlineCount}</span>
             </li>
             <li className="flex justify-between">
               <span>Preguntas en la sesión</span>

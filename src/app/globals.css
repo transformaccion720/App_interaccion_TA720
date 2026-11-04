@@ -41,76 +41,129 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* ==== Paleta corporativa Transform Acción 720 ==== */
+  /* Azul Eléctrico #0066FF — confianza, profesionalismo */
+  --color-brand-50: #ebf3ff;
+  --color-brand-100: #d9e8ff;
+  --color-brand-200: #b3d1ff;
+  --color-brand-300: #7faeff;
+  --color-brand-400: #3d8cff;
+  --color-brand-500: #0066ff;
+  --color-brand-600: #0052cc;
+  --color-brand-700: #00409e;
+  --color-brand-800: #003377;
+  --color-brand-900: #00285c;
+  --color-brand-950: #00182f;
+  /* Verde Lima #00CC88 — transformación, innovación */
+  --color-viva-50: #e6faf3;
+  --color-viva-100: #c9f3e2;
+  --color-viva-200: #99e7c8;
+  --color-viva-300: #5cd8aa;
+  --color-viva-400: #21cc92;
+  --color-viva-500: #00cc88;
+  --color-viva-600: #00a86f;
+  --color-viva-700: #008559;
+  --color-viva-800: #006846;
+  --color-viva-900: #004c33;
+  --color-viva-950: #00301f;
+  /* Amarillo Energía #FFB400 — creatividad y propósito */
+  --color-energy-50: #fff7e5;
+  --color-energy-100: #ffecc2;
+  --color-energy-200: #ffda85;
+  --color-energy-300: #ffc542;
+  --color-energy-400: #ffbc26;
+  --color-energy-500: #ffb400;
+  --color-energy-600: #d69600;
+  --color-energy-700: #a87500;
+  --color-energy-800: #7a5500;
+  --color-energy-900: #5c3f00;
+  --color-energy-950: #3d2a00;
+  /* Negro Carbón #1C1C1C — solidez, foco */
+  --color-carbon-50: #f6f6f6;
+  --color-carbon-100: #e8e8e8;
+  --color-carbon-200: #d1d1d1;
+  --color-carbon-300: #b0b0b0;
+  --color-carbon-400: #888888;
+  --color-carbon-500: #6b6b6b;
+  --color-carbon-600: #525252;
+  --color-carbon-700: #404040;
+  --color-carbon-800: #2e2e2e;
+  --color-carbon-900: #242424;
+  --color-carbon-950: #1c1c1c;
+  /* Gris Claro #F4F6F8 — neutralidad, fondo */
+  --color-claro: #f4f6f8;
+  --color-claro-dark: #e9edf2;
 }
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.21 0.02 240); /* gris pizarra profundo, corporativo */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.02 240);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.02 240);
-  --primary: oklch(0.47 0.07 192); /* verde azulado profundo — marca AulaViva */
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.968 0.005 240);
-  --secondary-foreground: oklch(0.27 0.02 240);
-  --muted: oklch(0.968 0.005 240);
-  --muted-foreground: oklch(0.52 0.02 240);
-  --accent: oklch(0.957 0.028 184); /* teal muy claro para acentos */
-  --accent-foreground: oklch(0.34 0.06 192);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.918 0.008 240);
-  --input: oklch(0.918 0.008 240);
-  --ring: oklch(0.47 0.07 192);
-  /* Paleta de gráficos corporativa: teal, pizarra, dorado apagado, arcilla, salvia */
-  --chart-1: oklch(0.55 0.09 192);
-  --chart-2: oklch(0.55 0.03 250);
-  --chart-3: oklch(0.75 0.11 84);
-  --chart-4: oklch(0.64 0.12 40);
-  --chart-5: oklch(0.7 0.08 155);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.21 0.02 240);
-  --sidebar-primary: oklch(0.47 0.07 192);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.968 0.005 240);
-  --sidebar-accent-foreground: oklch(0.27 0.02 240);
-  --sidebar-border: oklch(0.918 0.008 240);
-  --sidebar-ring: oklch(0.47 0.07 192);
+  --background: #ffffff;
+  --foreground: #1c1c1c; /* Negro Carbón */
+  --card: #ffffff;
+  --card-foreground: #1c1c1c;
+  --popover: #ffffff;
+  --popover-foreground: #1c1c1c;
+  --primary: #0066ff; /* Azul Eléctrico */
+  --primary-foreground: #ffffff;
+  --secondary: #f4f6f8; /* Gris Claro */
+  --secondary-foreground: #1c1c1c;
+  --muted: #f4f6f8; /* Gris Claro */
+  --muted-foreground: #5c6773;
+  --accent: #ebf3ff; /* azul eléctrico muy claro para acentos */
+  --accent-foreground: #0047b3;
+  --destructive: #dc2626;
+  --border: #e3e8ef;
+  --input: #e3e8ef;
+  --ring: #0066ff;
+  /* Paleta de gráficos corporativa: azul, verde, amarillo, carbón, celeste */
+  --chart-1: #0066ff;
+  --chart-2: #00cc88;
+  --chart-3: #ffb400;
+  --chart-4: #1c1c1c;
+  --chart-5: #38bdf8;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c1c1c;
+  --sidebar-primary: #0066ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f4f6f8;
+  --sidebar-accent-foreground: #1c1c1c;
+  --sidebar-border: #e3e8ef;
+  --sidebar-ring: #0066ff;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #1c1c1c;
+  --foreground: #f4f6f8;
+  --card: #242424;
+  --card-foreground: #f4f6f8;
+  --popover: #242424;
+  --popover-foreground: #f4f6f8;
+  --primary: #3d8cff;
+  --primary-foreground: #ffffff;
+  --secondary: #2e2e2e;
+  --secondary-foreground: #f4f6f8;
+  --muted: #2e2e2e;
+  --muted-foreground: #b0b0b0;
+  --accent: #2e2e2e;
+  --accent-foreground: #f4f6f8;
+  --destructive: #ef4444;
+  --border: rgba(255, 255, 255, 10%);
+  --input: rgba(255, 255, 255, 15%);
+  --ring: #3d8cff;
+  --chart-1: #3d8cff;
+  --chart-2: #00cc88;
+  --chart-3: #ffb400;
+  --chart-4: #f4f6f8;
+  --chart-5: #38bdf8;
+  --sidebar: #242424;
+  --sidebar-foreground: #f4f6f8;
+  --sidebar-primary: #3d8cff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2e2e2e;
+  --sidebar-accent-foreground: #f4f6f8;
+  --sidebar-border: rgba(255, 255, 255, 10%);
+  --sidebar-ring: #3d8cff;
 }
 
 @layer base {

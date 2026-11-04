@@ -12,6 +12,43 @@ function secret(): string {
   return process.env.AUTH_SECRET || 'aulaviva-dev-secret-cambiar-en-produccion'
 }
 
+// ---------- Atributos de la cookie (compatibles con iframes) ----------
+
+// Detecta si la petición llega por HTTPS (directo o detrás de un proxy).
+function isHttps(req: Request): boolean {
+  const proto = (req.headers.get('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase()
+  if (proto) return proto === 'https'
+  try {
+    return new URL(req.url).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/*
+ * IMPORTANTE: con SameSite=Lax el navegador NO envía la cookie cuando la
+ * plataforma se usa embebida en un iframe (p. ej. la vista previa). Eso hacía
+ * que la sesión se cerrara justo después de entrar. En HTTPS usamos
+ * SameSite=None + Secure (válida también dentro de iframes); en HTTP local
+ * mantenemos Lax porque los navegadores rechazan None sin Secure.
+ */
+export function sessionCookieString(req: Request, token: string): string {
+  const parts = [
+    `${SESSION_COOKIE}=${token}`,
+    'Path=/',
+    `Max-Age=${SESSION_DAYS * 24 * 3600}`,
+    'HttpOnly',
+  ]
+  parts.push(isHttps(req) ? 'SameSite=None; Secure' : 'SameSite=Lax')
+  return parts.join('; ')
+}
+
+export function clearSessionCookieString(req: Request): string {
+  const parts = [`${SESSION_COOKIE}=`, 'Path=/', 'Max-Age=0', 'HttpOnly']
+  parts.push(isHttps(req) ? 'SameSite=None; Secure' : 'SameSite=Lax')
+  return parts.join('; ')
+}
+
 // ---------- Contraseñas ----------
 
 export function hashPassword(password: string): string {
@@ -87,13 +124,29 @@ export const SESSION_COOKIE_OPTIONS = {
 
 // ---------- Lectura del docente autenticado (en route handlers) ----------
 
-export async function getAuthTeacher(): Promise<{ id: string; email: string; name: string } | null> {
+export type TeacherRole = 'ADMIN' | 'DOCENTE' | 'MODERADOR'
+
+export async function getAuthTeacher(): Promise<{
+  id: string
+  email: string
+  name: string
+  role: TeacherRole
+} | null> {
   const store = await cookies()
   const payload = verifyToken(store.get(SESSION_COOKIE)?.value)
   if (!payload) return null
   const teacher = await db.teacher.findUnique({
     where: { id: payload.sub },
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, role: true },
   })
+  if (!teacher) return null
+  return { ...teacher, role: (teacher.role as TeacherRole) || 'DOCENTE' }
+}
+
+// Devuelve el docente autenticado solo si tiene el rol indicado (por defecto ADMIN).
+export async function getAuthTeacherWithRole(...roles: TeacherRole[]) {
+  const teacher = await getAuthTeacher()
+  if (!teacher) return null
+  if (roles.length > 0 && !roles.includes(teacher.role)) return null
   return teacher
 }

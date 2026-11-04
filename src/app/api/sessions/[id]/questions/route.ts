@@ -1,6 +1,6 @@
 // POST /api/sessions/[id]/questions — crea una pregunta
 import { db } from '@/lib/db'
-import { jsonError, verifyAdmin } from '@/lib/api-helpers'
+import { jsonError, verifyAdmin, verifyAdminAccess } from '@/lib/api-helpers'
 
 const VALID_TYPES = ['multiple_choice', 'semaforo', 'word_cloud', 'decision_tree', 'open_text', 'diagnostico']
 

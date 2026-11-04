@@ -1,11 +1,15 @@
-// POST /api/demo — crea una sesión de demostración con preguntas de ejemplo
+// POST /api/demo — crea una sesión de demostración con preguntas de ejemplo.
+// SOLO disponible para el administrador (rol ADMIN): no se expone al público.
 import { db } from '@/lib/db'
 import { generateCode } from '@/lib/codes'
 import { jsonError } from '@/lib/api-helpers'
-import { getAuthTeacher } from '@/lib/auth'
+import { getAuthTeacherWithRole } from '@/lib/auth'
 
 export async function POST() {
   try {
+    const teacher = await getAuthTeacherWithRole('ADMIN')
+    if (!teacher) return jsonError('La demo solo está disponible para el administrador', 403)
+
     let joinCode = ''
     let adminCode = ''
     for (let attempt = 0; attempt < 10; attempt++) {
@@ -175,8 +179,6 @@ export async function POST() {
       },
     ]
 
-    const teacher = await getAuthTeacher()
-
     const session = await db.session.create({
       data: {
         title: 'Clase de demostración — AulaViva',
@@ -185,7 +187,7 @@ export async function POST() {
         adminCode,
         maxParticipants: 100,
         status: 'draft',
-        teacherId: teacher?.id || null,
+        teacherId: teacher.id,
         questions: { create: demoQuestions },
       },
     })

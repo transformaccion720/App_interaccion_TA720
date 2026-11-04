@@ -115,7 +115,7 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
   if (!code) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-200 border-t-teal-600" aria-label="Cargando" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" aria-label="Cargando" />
       </div>
     )
   }
@@ -147,7 +147,7 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
                 <WifiOff className="h-3.5 w-3.5" /> Sin conexión
               </Badge>
             ) : (
-              <Badge variant="secondary" className="gap-1.5 text-emerald-700">
+              <Badge variant="secondary" className="gap-1.5 text-viva-700">
                 <Wifi className="h-3.5 w-3.5" /> En vivo
               </Badge>
             )}
@@ -175,7 +175,7 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
         {state && state.session.status !== 'closed' && !q && (
           <Card className="text-center py-12">
             <CardContent className="space-y-4">
-              <Hourglass className="h-12 w-12 mx-auto text-teal-600 animate-pulse" />
+              <Hourglass className="h-12 w-12 mx-auto text-brand-600 animate-pulse" />
               <h2 className="text-xl font-bold">¡Ya estás dentro!</h2>
               <p className="text-muted-foreground">
                 Espera a que tu profesor abra una pregunta.<br />
@@ -198,7 +198,7 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
               {remaining !== null && remaining > 0 && (
                 <Badge
                   variant="secondary"
-                  className={`shrink-0 tabular-nums font-bold ${remaining <= 10 ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-800'}`}
+                  className={`shrink-0 tabular-nums font-bold ${remaining <= 10 ? 'bg-red-100 text-red-700' : 'bg-brand-100 text-brand-800'}`}
                 >
                   ⏱ {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
                 </Badge>
@@ -218,7 +218,7 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>Respondieron: {state?.answeredCount ?? 0} de {state?.totalParticipants ?? 0}</span>
                   {answered && (
-                    <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                    <span className="flex items-center gap-1 text-viva-700 font-medium">
                       <CheckCircle2 className="h-3.5 w-3.5" /> Respuesta registrada — puedes cambiarla
                     </span>
                   )}
@@ -268,7 +268,7 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
       </main>
 
       <footer className="mt-auto py-4 text-center text-xs text-muted-foreground border-t bg-white">
-        <Link href="/" className="hover:text-foreground">AulaViva</Link> — participación en el aula en tiempo real
+        <Link href="/" className="hover:text-foreground">Transform Acción 720</Link> — participación en el aula en tiempo real
       </footer>
     </div>
   )

@@ -81,7 +81,23 @@ mediante el hook `postinstall` si está definido. Añádelo en `package.json` si
 }
 ```
 
-## 5. Usar la plataforma en vivo
+## 5. Crear la cuenta del administrador (obligatorio)
+
+El registro público está **deshabilitado**: solo el administrador crea cuentas de
+docente o moderador desde el panel (pestaña **Usuarios**). Tras aplicar el esquema,
+crea la cuenta inicial de administrador:
+
+```bash
+node scripts/seed-teacher.js   # o: bun scripts/seed-teacher.ts
+# Crea: docente@aulaviva.app / AulaViva2026 (rol ADMIN)
+```
+
+> **Importante:** entra al panel, cambia esa contraseña desde *Usuarios → Restablecer
+> contraseña*, y crea ahí mismo las cuentas docente/moderador que necesites.
+> La sesión de **demo** (sesión de ejemplo con los 6 tipos de preguntas) también es
+> exclusiva del administrador: no aparece para el público ni para docentes.
+
+## 6. Usar la plataforma en vivo
 
 1. Comparte a tus alumnos la URL pública: `https://tu-app.vercel.app/join` — con el **código de 6 caracteres** o escaneando el **QR** que proyecta el panel docente.
 2. Tu panel está en `https://tu-app.vercel.app/admin`; guárdalo con su **código de administrador** (lo ves en «Ajustes») para reabrirlo desde cualquier equipo.

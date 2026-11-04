@@ -122,19 +122,19 @@ function MultipleChoiceForm({
               aria-pressed={active}
               className={`flex w-full items-center gap-3 rounded-xl border-2 p-4 text-left text-base font-medium transition-colors min-h-11 ${
                 active
-                  ? 'border-teal-600 bg-teal-50 text-teal-900'
-                  : 'border-border bg-card hover:border-teal-300 hover:bg-teal-50/40'
+                  ? 'border-brand-600 bg-brand-50 text-brand-900'
+                  : 'border-border bg-card hover:border-brand-300 hover:bg-brand-50/40'
               }`}
             >
               <span
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
-                  active ? 'border-teal-600 bg-teal-600 text-white' : 'border-muted-foreground/40 text-muted-foreground'
+                  active ? 'border-brand-600 bg-brand-600 text-white' : 'border-muted-foreground/40 text-muted-foreground'
                 }`}
               >
                 {String.fromCharCode(65 + i)}
               </span>
               {opt.text}
-              {multiple && active && <CheckCheck className="ml-auto h-4 w-4 text-teal-600" />}
+              {multiple && active && <CheckCheck className="ml-auto h-4 w-4 text-brand-600" />}
             </button>
           )
         })}
@@ -153,15 +153,15 @@ const VOTE_BUTTONS: { vote: SemaforoVote; label: string; icon: typeof CheckCircl
     vote: 'valid',
     label: 'Válida',
     icon: CheckCircle2,
-    classes: 'border-emerald-300 hover:bg-emerald-50',
-    active: 'border-emerald-600 bg-emerald-600 text-white',
+    classes: 'border-viva-300 hover:bg-viva-50',
+    active: 'border-viva-600 bg-viva-600 text-white',
   },
   {
     vote: 'partial',
     label: 'Parcial',
     icon: CircleDashed,
-    classes: 'border-amber-300 hover:bg-amber-50',
-    active: 'border-amber-500 bg-amber-500 text-white',
+    classes: 'border-energy-300 hover:bg-energy-50',
+    active: 'border-energy-500 bg-energy-500 text-white',
   },
   {
     vote: 'invalid',
@@ -306,7 +306,7 @@ function WordCloudForm({
       {words.length > 0 && (
         <div className="flex flex-wrap gap-2" aria-label="Palabras agregadas">
           {words.map((w, i) => (
-            <Badge key={i} variant="secondary" className="bg-teal-100 text-teal-900 hover:bg-teal-100 py-1.5 px-3 text-sm gap-1.5">
+            <Badge key={i} variant="secondary" className="bg-brand-100 text-brand-900 hover:bg-brand-100 py-1.5 px-3 text-sm gap-1.5">
               {w}
               <button type="button" aria-label={`Quitar ${w}`} onClick={() => setWords(words.filter((_, j) => j !== i))}>
                 <X className="h-3.5 w-3.5" />
@@ -418,9 +418,9 @@ function DecisionTreeForm({
                 key={opt.id}
                 type="button"
                 onClick={() => choose(opt.id, opt.nextId)}
-                className="flex w-full items-center gap-3 rounded-xl border-2 border-border bg-card p-4 text-left text-base font-medium transition-colors hover:border-teal-500 hover:bg-teal-50/40 min-h-11"
+                className="flex w-full items-center gap-3 rounded-xl border-2 border-border bg-card p-4 text-left text-base font-medium transition-colors hover:border-brand-500 hover:bg-brand-50/40 min-h-11"
               >
-                {opt.nextId === null && <CheckCircle2 className="h-5 w-5 shrink-0 text-teal-600" />}
+                {opt.nextId === null && <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-600" />}
                 {opt.label}
               </button>
             ))}
@@ -435,9 +435,9 @@ function DecisionTreeForm({
 
       {finished && leafOption && (
         <div className="space-y-4">
-          <div className="rounded-xl border-2 border-teal-600 bg-teal-50 p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 mb-1">Conclusión</p>
-            <p className="text-lg font-bold text-teal-900 leading-snug">{leafOption.label}</p>
+          <div className="rounded-xl border-2 border-brand-600 bg-brand-50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 mb-1">Conclusión</p>
+            <p className="text-lg font-bold text-brand-900 leading-snug">{leafOption.label}</p>
           </div>
           <div className="space-y-2">
             <label htmlFor="decision-comment" className="text-sm font-medium">
@@ -614,13 +614,13 @@ function DiagPromptInput({
               onClick={() => onChange(opt)}
               className={`flex w-full items-center gap-3 rounded-lg border-2 p-3 text-left text-sm font-medium transition-colors min-h-11 ${
                 active
-                  ? 'border-teal-600 bg-teal-50 text-teal-900'
-                  : 'border-border bg-card hover:border-teal-300 hover:bg-teal-50/40'
+                  ? 'border-brand-600 bg-brand-50 text-brand-900'
+                  : 'border-border bg-card hover:border-brand-300 hover:bg-brand-50/40'
               }`}
             >
               <span
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
-                  active ? 'border-teal-600 bg-teal-600 text-white' : 'border-muted-foreground/40 text-muted-foreground'
+                  active ? 'border-brand-600 bg-brand-600 text-white' : 'border-muted-foreground/40 text-muted-foreground'
                 }`}
               >
                 {String.fromCharCode(65 + i)}
@@ -635,7 +635,7 @@ function DiagPromptInput({
 
   // Escala 1-5
   const scaleValue = Number(value) || 0
-  const scaleColors = ['', 'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-lime-600', 'bg-emerald-600']
+  const scaleColors = ['', 'bg-red-500', 'bg-orange-500', 'bg-energy-500', 'bg-lime-600', 'bg-viva-600']
   return (
     <div className="space-y-1.5">
       <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label={prompt.label}>
@@ -652,7 +652,7 @@ function DiagPromptInput({
               className={`flex min-h-11 items-center justify-center rounded-lg border-2 text-sm font-bold transition-colors ${
                 active
                   ? `border-transparent ${scaleColors[n]} text-white`
-                  : 'border-border bg-card text-muted-foreground hover:border-teal-300'
+                  : 'border-border bg-card text-muted-foreground hover:border-brand-300'
               }`}
             >
               {n}

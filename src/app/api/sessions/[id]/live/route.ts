@@ -35,11 +35,8 @@ export async function POST(
       }),
     ])
 
-    // Normaliza temporizadores vencidos
-    const normalized: Question[] = []
-    for (const q of questions) {
-      normalized.push(await maybeAutoClose(q))
-    }
+    // Normaliza temporizadores vencidos (conserva las respuestas incluidas)
+    const normalized = await Promise.all(questions.map((q) => maybeAutoClose(q)))
 
     const now = Date.now()
     const onlineCount = participants.filter(

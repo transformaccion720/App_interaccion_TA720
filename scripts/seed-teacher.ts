@@ -1,5 +1,5 @@
-// Crea (o restablece) la cuenta docente de demostración.
-// Uso: bun scripts/seed-teacher.ts
+// Crea (o restablece) la cuenta del administrador de la plataforma.
+// Uso: bun scripts/seed-teacher.ts   (o node con tsx)
 import { PrismaClient } from '@prisma/client'
 import { scryptSync, randomBytes } from 'crypto'
 
@@ -19,19 +19,24 @@ async function main() {
   if (existing) {
     await prisma.teacher.update({
       where: { email: DEMO_EMAIL },
-      data: { passwordHash: hashPassword(DEMO_PASSWORD), name: existing.name || 'Docente Demo' },
+      data: {
+        passwordHash: hashPassword(DEMO_PASSWORD),
+        name: existing.name || 'Administrador',
+        role: 'ADMIN',
+      },
     })
-    console.log(`Cuenta demo actualizada: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`)
+    console.log(`Cuenta admin actualizada: ${DEMO_EMAIL} / ${DEMO_PASSWORD} (rol ADMIN)`)
     return
   }
   await prisma.teacher.create({
     data: {
       email: DEMO_EMAIL,
-      name: 'Docente Demo',
+      name: 'Administrador',
       passwordHash: hashPassword(DEMO_PASSWORD),
+      role: 'ADMIN',
     },
   })
-  console.log(`Cuenta demo creada: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`)
+  console.log(`Cuenta admin creada: ${DEMO_EMAIL} / ${DEMO_PASSWORD} (rol ADMIN)`)
 }
 
 main()

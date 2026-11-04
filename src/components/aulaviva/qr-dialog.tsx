@@ -67,11 +67,11 @@ export function QrDialog({ joinCode, title }: { joinCode: string; title: string 
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="rounded-2xl bg-gradient-to-b from-teal-50 to-white border p-6 text-center space-y-3">
+          <div className="rounded-2xl bg-gradient-to-b from-brand-50 to-white border p-6 text-center space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Entra en <span className="text-teal-700">{typeof window !== 'undefined' ? window.location.host : ''}</span> y usa el código
+              Entra en <span className="text-brand-700">{typeof window !== 'undefined' ? window.location.host : ''}</span> y usa el código
             </p>
-            <p className="text-5xl font-black tracking-[0.2em] text-teal-700">{joinCode}</p>
+            <p className="text-5xl font-black tracking-[0.2em] text-brand-700">{joinCode}</p>
             <p className="text-sm text-muted-foreground truncate">«{title}»</p>
             {qrDataUrl && (
               <img src={qrDataUrl} alt={`Código QR para unirse a la sesión ${joinCode}`} className="mx-auto rounded-xl border bg-white w-52 h-52" />
