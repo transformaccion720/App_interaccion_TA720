@@ -2,12 +2,18 @@
 
 // Modo presentación de resultados — pantalla completa estilo Mentimeter,
 // pensado para proyectar a la audiencia:
-//  - Fondo oscuro corporativo con tipografía y barras grandes.
+//  - Separadores de pregunta: cada pregunta arranca con una diapositiva de
+//    apertura para que tome protagonismo (1 × 1 o 2 a la vez).
+//  - Palabras clave profesionales y estáticas: en las preguntas de texto libre
+//    solo se muestran las palabras principales del grupo, nunca los comentarios
+//    largos (sin animaciones).
+//  - Gráficos estilo dashboard: barras horizontales con cuadrícula y valores,
+//    gráfico de columnas con línea de promedio para la escala 1-5.
 //  - Actualización en vivo: hereda el polling del panel (cada 2 s) y añade
 //    un botón de refresco manual como refuerzo.
-//  - Navegación entre preguntas (botones ‹ › o flechas del teclado),
+//  - Navegación entre diapositivas (botones ‹ › o flechas del teclado),
 //    pantalla completa (tecla F) y cierre (Esc o botón).
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type {
   AdminLive,
   DecisionTreeResults,
@@ -23,8 +29,7 @@ import type {
 } from '@/lib/types'
 import { QUESTION_TYPE_LABELS } from '@/lib/types'
 import { BrandLogo } from './brand-logo'
-import { WordCloud } from './word-cloud'
-import { relativeTime } from '@/lib/codes'
+import { extractKeywordsFromTexts } from '@/lib/codes'
 import {
   X,
   ChevronLeft,
@@ -36,22 +41,15 @@ import {
   Users,
   Radio,
   BarChart3,
+  Square,
+  Columns2,
 } from 'lucide-react'
-
-const BAR_COLORS = [
-  'bg-brand-500',
-  'bg-viva-500',
-  'bg-energy-500',
-  'bg-violet-500',
-  'bg-cyan-500',
-  'bg-rose-500',
-  'bg-brand-300',
-  'bg-slate-500',
-]
 
 function pct(count: number, total: number): number {
   return total > 0 ? Math.round((count / total) * 100) : 0
 }
+
+type Slide = { kind: 'divider' | 'results'; gi: number }
 
 export function PresentationOverlay({
   live,
@@ -65,24 +63,55 @@ export function PresentationOverlay({
   onRefresh: () => void
 }) {
   const questions = live.questions
-  const [index, setIndex] = useState(() => {
-    const i = questions.findIndex((q) => q.id === initialQuestionId)
-    return i >= 0 ? i : 0
+  const [perView, setPerView] = useState<1 | 2>(1)
+  const [slideIndex, setSlideIndex] = useState(() => {
+    const qi = questions.findIndex((q) => q.id === initialQuestionId)
+    // Aterriza en la diapositiva de resultados de la pregunta elegida
+    return qi >= 0 ? qi * 2 + 1 : 0
   })
   const [spinning, setSpinning] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // Mantener el índice dentro del rango si cambia la lista de preguntas
-  useEffect(() => {
-    if (index > questions.length - 1) setIndex(Math.max(0, questions.length - 1))
-  }, [questions.length, index])
+  // Grupos de preguntas según el modo (1 × 1 o 2 a la vez)
+  const groups = useMemo(() => {
+    const out: QuestionAdmin[][] = []
+    for (let i = 0; i < questions.length; i += perView) {
+      out.push(questions.slice(i, i + perView))
+    }
+    return out
+  }, [questions, perView])
+
+  // Baraja de diapositivas: separador + resultados por cada grupo
+  const slides = useMemo<Slide[]>(
+    () => groups.flatMap((_, gi) => [{ kind: 'divider' as const, gi }, { kind: 'results' as const, gi }]),
+    [groups]
+  )
+
+  // El índice se acota al leerlo: si la baraja se acorta (p. ej. al cambiar
+  // entre 1 × 1 y 2 a la vez) nunca se sale del rango sin efectos extra.
+  const maxIndex = Math.max(0, slides.length - 1)
+  const safeIndex = Math.min(slideIndex, maxIndex)
 
   const go = useCallback(
     (delta: number) => {
-      setIndex((i) => Math.min(questions.length - 1, Math.max(0, i + delta)))
+      setSlideIndex(Math.min(maxIndex, Math.max(0, safeIndex + delta)))
     },
-    [questions.length]
+    [maxIndex, safeIndex]
   )
+
+  // Cambiar entre 1 × 1 y 2 a la vez sin perder la pregunta visible
+  function changePerView(next: 1 | 2) {
+    if (next === perView) return
+    const cur = slides[safeIndex]
+    const anchorId = cur ? groups[cur.gi]?.[0]?.id : undefined
+    const newGroups: QuestionAdmin[][] = []
+    for (let i = 0; i < questions.length; i += next) {
+      newGroups.push(questions.slice(i, i + next))
+    }
+    const gi = Math.max(0, newGroups.findIndex((g) => g.some((q) => q.id === anchorId)))
+    setPerView(next)
+    setSlideIndex(gi * 2 + 1)
+  }
 
   const toggleFullscreen = useCallback(() => {
     try {
@@ -102,9 +131,13 @@ export function PresentationOverlay({
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
-      else if (e.key === 'ArrowRight') go(1)
-      else if (e.key === 'ArrowLeft') go(-1)
-      else if (e.key.toLowerCase() === 'f') toggleFullscreen()
+      else if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+        e.preventDefault()
+        go(1)
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault()
+        go(-1)
+      } else if (e.key.toLowerCase() === 'f') toggleFullscreen()
     }
     document.addEventListener('fullscreenchange', onFsChange)
     document.addEventListener('keydown', onKey)
@@ -120,8 +153,10 @@ export function PresentationOverlay({
     window.setTimeout(() => setSpinning(false), 700)
   }
 
-  const q: QuestionAdmin | undefined = questions[index]
-  const results = q ? live.resultsByQuestion[q.id] : undefined
+  const slide: Slide | undefined = slides[safeIndex]
+  const group = slide ? groups[slide.gi] : undefined
+  // Número de cada pregunta dentro de la sesión (1-indexado)
+  const numbers = group ? group.map((q) => questions.findIndex((x) => x.id === q.id) + 1) : []
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-carbon-950 text-white overflow-hidden">
@@ -140,24 +175,50 @@ export function PresentationOverlay({
         </span>
 
         <div className="ml-auto flex items-center gap-1.5">
-          {/* Navegación entre preguntas */}
+          {/* Modo: una pregunta o dos a la vez */}
+          <div
+            className="hidden sm:flex rounded-lg border border-white/10 overflow-hidden"
+            role="group"
+            aria-label="Preguntas por pantalla"
+          >
+            <button
+              type="button"
+              onClick={() => changePerView(1)}
+              aria-pressed={perView === 1}
+              title="Una pregunta a la vez"
+              className={`px-2.5 py-2 ${perView === 1 ? 'bg-brand-500/25 text-brand-200' : 'text-slate-300 hover:bg-white/10'}`}
+            >
+              <Square className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => changePerView(2)}
+              aria-pressed={perView === 2}
+              title="Dos preguntas a la vez"
+              className={`px-2.5 py-2 ${perView === 2 ? 'bg-brand-500/25 text-brand-200' : 'text-slate-300 hover:bg-white/10'}`}
+            >
+              <Columns2 className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Navegación entre diapositivas */}
           <button
             type="button"
             onClick={() => go(-1)}
-            disabled={index === 0}
-            aria-label="Pregunta anterior"
+            disabled={safeIndex === 0}
+            aria-label="Anterior"
             className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <span className="text-sm tabular-nums text-slate-300 min-w-20 text-center">
-            {questions.length > 0 ? `${index + 1} / ${questions.length}` : '—'}
+          <span className="text-sm tabular-nums text-slate-300 min-w-16 text-center">
+            {slides.length > 0 ? `${safeIndex + 1} / ${slides.length}` : '—'}
           </span>
           <button
             type="button"
             onClick={() => go(1)}
-            disabled={index >= questions.length - 1}
-            aria-label="Pregunta siguiente"
+            disabled={safeIndex >= slides.length - 1}
+            aria-label="Siguiente"
             className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronRight className="h-5 w-5" />
@@ -196,47 +257,13 @@ export function PresentationOverlay({
 
       {/* Contenido */}
       <main className="relative z-10 flex-1 overflow-y-auto">
-        <div className="min-h-full max-w-5xl mx-auto px-6 py-8 md:py-10 flex flex-col">
-          {q ? (
-            <>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="inline-flex items-center rounded-full bg-brand-500/20 border border-brand-400/30 text-brand-200 text-xs font-semibold px-3 py-1">
-                  {QUESTION_TYPE_LABELS[q.type]}
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300 text-xs font-medium px-3 py-1">
-                  <Users className="h-3.5 w-3.5" />
-                  {q.answeredCount} respuesta{q.answeredCount === 1 ? '' : 's'}
-                </span>
-              </div>
-
-              <h1 className="text-3xl md:text-5xl font-extrabold leading-tight tracking-tight text-balance">
-                {q.title}
-              </h1>
-              {q.description && (
-                <p className="mt-3 text-lg text-slate-300 leading-relaxed max-w-3xl">{q.description}</p>
-              )}
-              {q.imageUrl && (
-                <img
-                  src={q.imageUrl}
-                  alt="Imagen de apoyo"
-                  className="mt-4 max-h-56 rounded-xl border border-white/10 object-contain bg-white/95"
-                />
-              )}
-
-              <div className="flex-1 flex flex-col justify-center py-8">
-                {results ? (
-                  <PresentationResults results={results} config={q.config} />
-                ) : (
-                  <div className="text-center py-16 space-y-3">
-                    <BarChart3 className="h-14 w-14 mx-auto text-slate-600" />
-                    <p className="text-xl font-semibold text-slate-300">Sin respuestas todavía</p>
-                    <p className="text-sm text-slate-400">
-                      Los resultados aparecerán aquí en tiempo real a medida que los participantes respondan.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </>
+        <div className="min-h-full max-w-6xl mx-auto px-5 md:px-8 py-6 md:py-8 flex flex-col">
+          {slide && group ? (
+            slide.kind === 'divider' ? (
+              <DividerSlide group={group} numbers={numbers} total={questions.length} />
+            ) : (
+              <ResultsSlide group={group} numbers={numbers} live={live} compact={group.length > 1} />
+            )
           ) : (
             <div className="flex-1 grid place-items-center text-slate-400">
               Esta sesión no tiene preguntas.
@@ -261,72 +288,235 @@ export function PresentationOverlay({
   )
 }
 
+// ------------------ Separador de pregunta (protagonismo 1 × 1 o 2 a la vez) ------------------
+
+function DividerSlide({ group, numbers, total }: { group: QuestionAdmin[]; numbers: number[]; total: number }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-center gap-5 py-10">
+      <p className="text-sm md:text-base font-bold uppercase tracking-[0.35em] text-brand-300">
+        {numbers.length > 1
+          ? `Preguntas ${numbers[0]} y ${numbers[1]} de ${total}`
+          : `Pregunta ${numbers[0] || 1} de ${total}`}
+      </p>
+      <div className="h-1 w-20 rounded-full bg-gradient-to-r from-brand-500 via-viva-500 to-energy-500" aria-hidden />
+      {group.map((q) => (
+        <div key={q.id} className="space-y-3 max-w-5xl">
+          <h1 className="text-4xl md:text-6xl font-extrabold leading-tight tracking-tight text-balance">
+            {q.title}
+          </h1>
+          {q.description && (
+            <p className="text-lg md:text-xl text-slate-300 leading-relaxed max-w-3xl mx-auto">{q.description}</p>
+          )}
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+            <span className="inline-flex items-center rounded-full bg-brand-500/20 border border-brand-400/30 text-brand-200 text-xs font-semibold px-3 py-1">
+              {QUESTION_TYPE_LABELS[q.type]}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300 text-xs font-medium px-3 py-1">
+              <Users className="h-3.5 w-3.5" />
+              {q.answeredCount} respuesta{q.answeredCount === 1 ? '' : 's'}
+            </span>
+          </div>
+        </div>
+      ))}
+      <p className="text-xs text-slate-500 mt-2 hidden md:block">Usa las flechas ← → del teclado para avanzar</p>
+    </div>
+  )
+}
+
+// ------------------ Diapositiva de resultados (1 o 2 preguntas) ------------------
+
+function ResultsSlide({
+  group,
+  numbers,
+  live,
+  compact,
+}: {
+  group: QuestionAdmin[]
+  numbers: number[]
+  live: AdminLive
+  compact: boolean
+}) {
+  if (group.length === 1) {
+    const q = group[0]
+    const results = live.resultsByQuestion[q.id]
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="inline-flex items-center rounded-full bg-brand-500/20 border border-brand-400/30 text-brand-200 text-xs font-semibold px-3 py-1">
+            {QUESTION_TYPE_LABELS[q.type]}
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300 text-xs font-medium px-3 py-1">
+            <Users className="h-3.5 w-3.5" />
+            {q.answeredCount} respuesta{q.answeredCount === 1 ? '' : 's'}
+          </span>
+          <span className="text-xs font-bold uppercase tracking-[0.3em] text-slate-500 ml-1">
+            Pregunta {numbers[0]} de {live.questions.length}
+          </span>
+        </div>
+
+        <h1 className="text-3xl md:text-5xl font-extrabold leading-tight tracking-tight text-balance">
+          {q.title}
+        </h1>
+        {q.description && (
+          <p className="mt-3 text-lg text-slate-300 leading-relaxed max-w-3xl">{q.description}</p>
+        )}
+        {q.imageUrl && (
+          <img
+            src={q.imageUrl}
+            alt="Imagen de apoyo"
+            className="mt-4 max-h-56 rounded-xl border border-white/10 object-contain bg-white/95"
+          />
+        )}
+
+        <div className="flex-1 flex flex-col justify-center py-6 min-h-0">
+          {results ? (
+            <PresentationResults results={results} config={q.config} compact={false} />
+          ) : (
+            <EmptyResults />
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Dos preguntas a la vez, en paneles equilibrados
+  return (
+    <div className="flex-1 grid md:grid-cols-2 gap-4 md:gap-6 min-h-0 py-1">
+      {group.map((q, i) => {
+        const results = live.resultsByQuestion[q.id]
+        return (
+          <section
+            key={q.id}
+            className="rounded-2xl bg-white/[0.03] border border-white/10 p-5 flex flex-col min-h-0 overflow-y-auto"
+          >
+            <div className="flex items-start justify-between gap-3 mb-1">
+              <h2 className="text-xl md:text-2xl font-bold leading-snug text-balance">{q.title}</h2>
+              <span className="shrink-0 text-xs font-bold uppercase tracking-widest text-slate-500 pt-1.5">
+                N.º {numbers[i]}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="inline-flex items-center rounded-full bg-brand-500/15 border border-brand-400/25 text-brand-200 text-[11px] font-semibold px-2.5 py-0.5">
+                {QUESTION_TYPE_LABELS[q.type]}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[11px] font-medium px-2.5 py-0.5">
+                <Users className="h-3 w-3" />
+                {q.answeredCount}
+              </span>
+            </div>
+            <div className="flex-1 flex flex-col justify-center py-2 min-h-0">
+              {results ? (
+                <PresentationResults results={results} config={q.config} compact />
+              ) : (
+                <p className="text-center text-sm text-slate-400 py-8">Sin respuestas todavía.</p>
+              )}
+            </div>
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+function EmptyResults() {
+  return (
+    <div className="text-center py-16 space-y-3">
+      <BarChart3 className="h-14 w-14 mx-auto text-slate-600" />
+      <p className="text-xl font-semibold text-slate-300">Sin respuestas todavía</p>
+      <p className="text-sm text-slate-400">
+        Los resultados aparecerán aquí en tiempo real a medida que los participantes respondan.
+      </p>
+    </div>
+  )
+}
+
 // ------------------ Resultados grandes por tipo ------------------
 
 function PresentationResults({
   results,
   config,
+  compact,
 }: {
   results: NonNullable<AdminLive['resultsByQuestion'][string]>
   config: unknown
+  compact: boolean
 }) {
   switch (results.type) {
     case 'multiple_choice':
-      return <BigMultiple data={results.data} config={config as MultipleChoiceConfig} />
+      return <BigMultiple data={results.data} config={config as MultipleChoiceConfig} compact={compact} />
     case 'semaforo':
-      return <BigSemaforo data={results.data} config={config as SemaforoConfig} />
+      return <BigSemaforo data={results.data} config={config as SemaforoConfig} compact={compact} />
     case 'word_cloud':
-      return <BigWordCloud data={results.data} />
+      return <BigWordCloud data={results.data} compact={compact} />
     case 'decision_tree':
-      return <BigDecision data={results.data} />
+      return <BigDecision data={results.data} compact={compact} />
     case 'open_text':
-      return <BigOpenText data={results.data} />
+      return <BigOpenText data={results.data} compact={compact} />
     case 'diagnostico':
-      return <BigDiagnostico data={results.data} config={config as DiagnosticoConfig} />
+      return <BigDiagnostico data={results.data} config={config as DiagnosticoConfig} compact={compact} />
   }
 }
 
-function BigMultiple({
-  data,
-  config,
-}: {
-  data: MultipleChoiceResults
-  config: MultipleChoiceConfig
-}) {
-  const options = config?.options || []
-  const max = Math.max(1, ...options.map((o) => data.counts[o.id] || 0))
+// ------------------ Barras horizontales estilo dashboard ------------------
+
+type BarRow = {
+  id: string
+  label: string
+  count: number
+  letter?: string
+  correct?: boolean
+}
+
+function DashboardHBars({ rows, total, compact }: { rows: BarRow[]; total: number; compact?: boolean }) {
+  const max = Math.max(1, ...rows.map((r) => r.count))
   return (
-    <div className="space-y-5">
-      {options.map((opt, i) => {
-        const count = data.counts[opt.id] || 0
-        const p = pct(count, data.total)
-        const isCorrect = !!opt.correct
+    <div className={compact ? 'space-y-3' : 'space-y-5'}>
+      {rows.map((r) => {
+        const p = pct(r.count, total)
         return (
-          <div key={opt.id} className="space-y-1.5">
-            <div className="flex items-center gap-3">
+          <div key={r.id} className="flex items-center gap-3">
+            {r.letter && (
               <span
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-extrabold ${
-                  isCorrect ? 'bg-viva-500 text-white' : 'bg-white/10 text-white'
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base font-extrabold ${
+                  r.correct ? 'bg-viva-500 text-white' : 'bg-white/10 text-slate-200'
                 }`}
               >
-                {String.fromCharCode(65 + i)}
+                {r.letter}
               </span>
-              <span className="flex-1 text-xl md:text-2xl font-semibold leading-snug flex items-center gap-2 min-w-0">
-                <span className="truncate">{opt.text}</span>
-                {isCorrect && <CheckCircle2 className="h-6 w-6 shrink-0 text-viva-400" aria-label="Correcta" />}
-              </span>
-              <span className="text-2xl md:text-3xl font-extrabold tabular-nums shrink-0">
-                {p}
-                <span className="text-base md:text-lg text-slate-400 font-bold">%</span>
-              </span>
-              <span className="text-lg text-slate-400 tabular-nums w-12 text-right shrink-0">{count}</span>
-            </div>
-            <div className="h-9 md:h-10 rounded-xl bg-white/5 overflow-hidden ml-14">
+            )}
+            <span
+              className={`shrink-0 font-semibold leading-snug truncate flex items-center gap-1.5 ${
+                compact ? 'w-28 md:w-44 text-sm md:text-base' : 'w-40 md:w-72 text-base md:text-lg'
+              }`}
+              title={r.label}
+            >
+              <span className="truncate">{r.label}</span>
+              {r.correct && <CheckCircle2 className="h-5 w-5 shrink-0 text-viva-400" aria-label="Correcta" />}
+            </span>
+            <div
+              className="relative flex-1 h-8 md:h-9 rounded-lg bg-white/[0.04] overflow-hidden"
+              style={{
+                // cuadrícula vertical sutil cada 25 % (estilo dashboard)
+                backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px)',
+                backgroundSize: '25% 100%',
+              }}
+            >
               <div
-                className={`h-full rounded-xl transition-all duration-700 ${isCorrect ? 'bg-viva-500' : BAR_COLORS[i % BAR_COLORS.length]}`}
-                style={{ width: `${Math.max(count > 0 ? 6 : 0, (count / max) * 100)}%` }}
+                className={`absolute inset-y-0 left-0 rounded-r-lg ${
+                  r.correct ? 'bg-gradient-to-r from-viva-600 to-viva-400' : 'bg-gradient-to-r from-brand-600 to-brand-400'
+                }`}
+                style={{ width: `${Math.max(r.count > 0 ? 3 : 0, (r.count / max) * 100)}%` }}
               />
             </div>
+            <span className="w-16 md:w-20 shrink-0 text-right leading-none">
+              <span className="text-xl md:text-2xl font-extrabold tabular-nums">
+                {p}
+                <span className="text-sm text-slate-400 font-bold">%</span>
+              </span>
+              <span className="block mt-0.5 text-[11px] md:text-xs text-slate-400 tabular-nums">
+                {r.count} {r.count === 1 ? 'voto' : 'votos'}
+              </span>
+            </span>
           </div>
         )
       })}
@@ -334,10 +524,30 @@ function BigMultiple({
   )
 }
 
-function BigSemaforo({ data, config }: { data: SemaforoResults; config: SemaforoConfig }) {
+function BigMultiple({
+  data,
+  config,
+  compact,
+}: {
+  data: MultipleChoiceResults
+  config: MultipleChoiceConfig
+  compact: boolean
+}) {
+  const options = config?.options || []
+  const rows: BarRow[] = options.map((opt, i) => ({
+    id: opt.id,
+    label: opt.text,
+    count: data.counts[opt.id] || 0,
+    letter: String.fromCharCode(65 + i),
+    correct: !!opt.correct,
+  }))
+  return <DashboardHBars rows={rows} total={data.total} compact={compact} />
+}
+
+function BigSemaforo({ data, config, compact }: { data: SemaforoResults; config: SemaforoConfig; compact: boolean }) {
   const items = config?.items || []
   return (
-    <div className="space-y-7">
+    <div className={compact ? 'space-y-4' : 'space-y-7'}>
       {items.map((item) => {
         const r = data.items.find((i) => i.itemId === item.id)
         const total = r ? r.valid + r.partial + r.invalid : 0
@@ -349,28 +559,30 @@ function BigSemaforo({ data, config }: { data: SemaforoResults; config: Semaforo
         return (
           <div key={item.id} className="space-y-2">
             <div className="flex items-start justify-between gap-3">
-              <p className="text-xl md:text-2xl font-semibold leading-snug">{item.text}</p>
+              <p className={`font-semibold leading-snug ${compact ? 'text-base md:text-lg' : 'text-xl md:text-2xl'}`}>
+                {item.text}
+              </p>
               <span className={`shrink-0 rounded-full border px-3 py-1 text-sm font-bold ${overall.cls}`}>
                 {overall.label}
               </span>
             </div>
-            <div className="flex h-9 md:h-10 rounded-xl overflow-hidden bg-white/5">
+            <div className="flex h-8 md:h-9 rounded-xl overflow-hidden bg-white/5">
               {total > 0 && (
                 <>
                   <div
-                    className="bg-viva-500 transition-all duration-700 flex items-center justify-center"
+                    className="bg-gradient-to-b from-viva-500 to-viva-600 flex items-center justify-center"
                     style={{ width: `${(r!.valid / total) * 100}%` }}
                   >
                     {r!.valid / total > 0.12 && <span className="text-base font-extrabold text-white">{r!.valid}</span>}
                   </div>
                   <div
-                    className="bg-energy-500 transition-all duration-700 flex items-center justify-center"
+                    className="bg-gradient-to-b from-energy-400 to-energy-600 flex items-center justify-center"
                     style={{ width: `${(r!.partial / total) * 100}%` }}
                   >
                     {r!.partial / total > 0.12 && <span className="text-base font-extrabold text-white">{r!.partial}</span>}
                   </div>
                   <div
-                    className="bg-red-500 transition-all duration-700 flex items-center justify-center"
+                    className="bg-gradient-to-b from-red-400 to-red-600 flex items-center justify-center"
                     style={{ width: `${(r!.invalid / total) * 100}%` }}
                   >
                     {r!.invalid / total > 0.12 && <span className="text-base font-extrabold text-white">{r!.invalid}</span>}
@@ -390,97 +602,119 @@ function BigSemaforo({ data, config }: { data: SemaforoResults; config: Semaforo
   )
 }
 
-function BigWordCloud({ data }: { data: WordCloudResults }) {
-  return (
-    <div className="space-y-4">
-      <WordCloud words={data.words} scale={2.4} dark />
-      <p className="text-center text-slate-400">
-        {data.total} participante{data.total === 1 ? '' : 's'} ·{' '}
-        {data.words.reduce((s, w) => s + w.count, 0)} palabras
-      </p>
-    </div>
-  )
-}
+// ------------------ Panel de palabras clave (profesional y estático) ------------------
 
-function BigDecision({ data }: { data: DecisionTreeResults }) {
-  const max = Math.max(1, ...data.leaves.map((l) => l.count))
+// Muestra solo las palabras principales del grupo, con tamaño según frecuencia.
+// Sin animaciones y con la paleta de marca: pensado para proyección.
+function KeywordBoard({
+  words,
+  total,
+  compact,
+}: {
+  words: { word: string; count: number }[]
+  total: number
+  compact?: boolean
+}) {
+  if (!words.length) {
+    return <p className="text-slate-400 text-center py-10">Aún no hay palabras para destacar.</p>
+  }
+  const max = Math.max(...words.map((w) => w.count))
+  const list = compact ? words.slice(0, 14) : words.slice(0, 22)
   return (
-    <div className="space-y-8">
-      <div className="space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">Conclusiones alcanzadas</h2>
-        {data.leaves.map((leaf, i) => (
-          <div key={leaf.optionId} className="space-y-1.5">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xl md:text-2xl font-semibold truncate">{leaf.label}</span>
-              <span className="shrink-0 text-2xl md:text-3xl font-extrabold tabular-nums">
-                {pct(leaf.count, data.total)}
-                <span className="text-base md:text-lg text-slate-400 font-bold">%</span>
-              </span>
-            </div>
-            <div className="h-9 md:h-10 rounded-xl bg-white/5 overflow-hidden">
-              <div
-                className={`h-full rounded-xl transition-all duration-700 ${BAR_COLORS[i % BAR_COLORS.length]}`}
-                style={{ width: `${Math.max(leaf.count > 0 ? 6 : 0, (leaf.count / max) * 100)}%` }}
-              />
-            </div>
-          </div>
-        ))}
+    <div className="space-y-5">
+      <div className="flex items-center justify-center gap-3 text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">
+        <span className="h-px w-10 bg-white/15" aria-hidden />
+        Palabras clave del grupo
+        <span className="h-px w-10 bg-white/15" aria-hidden />
       </div>
-
-      {data.comments.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">
-            Comentarios de los participantes
-          </h2>
-          <div className="grid md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
-            {data.comments.map((c, i) => (
-              <div key={i} className="rounded-xl bg-white/5 border border-white/10 p-4">
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <span className="font-bold">{c.participant}</span>
-                  <span className="text-xs text-slate-400">{relativeTime(c.at)}</span>
-                </div>
-                <p className="text-xs text-slate-400 mb-1.5">{c.pathText}</p>
-                <p className="leading-snug text-slate-100">{c.comment}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div
+        className="flex flex-wrap items-baseline justify-center gap-x-5 gap-y-3 px-2"
+        aria-label="Palabras principales mencionadas por los participantes"
+      >
+        {list.map((w, i) => {
+          const ratio = w.count / max
+          const isTop = i === 0
+          const fontSize = isTop
+            ? `clamp(${compact ? 34 : 44}px, ${compact ? 5.5 : 7.5}vw, ${compact ? 64 : 96}px)`
+            : `${Math.max(compact ? 15 : 18, Math.round((compact ? 15 : 18) + (compact ? 26 : 40) * Math.pow(ratio, 0.8)))}px`
+          const color =
+            isTop ? 'text-brand-300' : i === 1 ? 'text-viva-300' : i === 2 ? 'text-energy-300' : 'text-slate-100'
+          const opacity = i < 3 ? 1 : Math.max(0.55, 1 - i * 0.03)
+          const weight = isTop ? 800 : i < 3 ? 700 : ratio > 0.4 ? 600 : 500
+          return (
+            <span
+              key={w.word}
+              className={`${color} leading-none inline-flex items-baseline gap-1.5`}
+              style={{ fontSize, fontWeight: weight, opacity }}
+              title={`${w.count} ${w.count === 1 ? 'mención' : 'menciones'}`}
+            >
+              <span>{w.word}</span>
+              {w.count > 1 && (
+                <span className="rounded-full bg-white/10 text-slate-300 px-1.5 py-0.5 tabular-nums text-[0.38em] font-bold">
+                  {w.count}
+                </span>
+              )}
+            </span>
+          )
+        })}
+      </div>
+      {total > 0 && (
+        <p className="text-center text-sm text-slate-400">
+          {total} respuesta{total === 1 ? '' : 's'} · solo se muestran las palabras principales
+        </p>
       )}
-      <p className="text-slate-400">
-        {data.total} recorrido{data.total === 1 ? '' : 's'} completado{data.total === 1 ? '' : 's'}
-      </p>
     </div>
   )
 }
 
-function BigOpenText({ data }: { data: OpenTextResults }) {
+function BigWordCloud({ data, compact }: { data: WordCloudResults; compact: boolean }) {
+  return <KeywordBoard words={data.words} total={data.total} compact={compact} />
+}
+
+function BigDecision({ data, compact }: { data: DecisionTreeResults; compact: boolean }) {
+  const rows: BarRow[] = data.leaves.map((l) => ({
+    id: l.optionId,
+    label: l.label,
+    count: l.count,
+  }))
+  return (
+    <div className="space-y-5">
+      <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Conclusiones alcanzadas</p>
+      <DashboardHBars rows={rows} total={data.total} compact={compact} />
+    </div>
+  )
+}
+
+// Texto abierto: solo palabras clave, sin comentarios largos en pantalla
+function BigOpenText({ data, compact }: { data: OpenTextResults; compact: boolean }) {
   if (!data.items.length) {
     return <p className="text-slate-400 text-center py-10">Aún no hay respuestas.</p>
   }
-  return (
-    <div className="space-y-3">
-      <div className="grid md:grid-cols-2 gap-3 max-h-[52vh] overflow-y-auto pr-1">
-        {data.items.map((item, i) => (
-          <div key={i} className="rounded-xl bg-white/5 border border-white/10 p-4">
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="font-bold">{item.participant}</span>
-              <span className="text-xs text-slate-400">{relativeTime(item.at)}</span>
-            </div>
-            <p className="text-lg leading-snug text-slate-100 break-words">{item.text}</p>
-          </div>
-        ))}
-      </div>
-      <p className="text-slate-400">{data.total} respuesta{data.total === 1 ? '' : 's'}</p>
-    </div>
-  )
+  const words = extractKeywordsFromTexts(data.items.map((i) => i.text), 24)
+  if (!words.length) {
+    return (
+      <p className="text-slate-400 text-center py-10">
+        {data.total} respuesta{data.total === 1 ? '' : 's'} recibida{data.total === 1 ? '' : 's'}.
+      </p>
+    )
+  }
+  return <KeywordBoard words={words} total={data.total} compact={compact} />
 }
 
 // ------------------ Diagnóstico situacional en grande ------------------
 
-function BigDiagnostico({ data, config }: { data: { total: number; prompts: DiagPromptResult[] }; config: DiagnosticoConfig }) {
+function BigDiagnostico({
+  data,
+  config,
+  compact,
+}: {
+  data: { total: number; prompts: DiagPromptResult[] }
+  config: DiagnosticoConfig
+  compact: boolean
+}) {
   const prompts = config?.prompts || []
   return (
-    <div className="space-y-7">
+    <div className={compact ? 'space-y-4' : 'space-y-7'}>
       <p className="text-sm text-slate-400">
         {data.total} participante{data.total === 1 ? '' : 's'} respondieron el diagnóstico
       </p>
@@ -490,17 +724,19 @@ function BigDiagnostico({ data, config }: { data: { total: number; prompts: Diag
         return (
           <section key={prompt.id} className="space-y-3">
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-xl md:text-2xl font-bold leading-snug">
+              <h2 className={`font-bold leading-snug ${compact ? 'text-lg md:text-xl' : 'text-xl md:text-2xl'}`}>
                 <span className="text-slate-500 mr-2">{i + 1}.</span>
                 {prompt.label}
               </h2>
               <span className="shrink-0 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300">
-                {r.kind === 'text' ? 'Texto libre' : r.kind === 'choice' ? 'Opciones' : 'Escala 1-5'}
+                {r.kind === 'text' ? 'Palabras clave' : r.kind === 'choice' ? 'Opciones' : 'Escala 1-5'}
               </span>
             </div>
-            {r.kind === 'choice' && <BigChoiceCounts counts={r.counts} total={r.total} />}
-            {r.kind === 'scale' && <BigScale result={r} />}
-            {r.kind === 'text' && <BigDiagText result={r} />}
+            {r.kind === 'choice' && <BigChoiceCounts counts={r.counts} total={r.total} compact={compact} />}
+            {r.kind === 'scale' && (
+              <BigScale result={r} compact={compact} minLabel={prompt.minLabel} maxLabel={prompt.maxLabel} />
+            )}
+            {r.kind === 'text' && <BigDiagText result={r} compact={compact} />}
           </section>
         )
       })}
@@ -508,99 +744,133 @@ function BigDiagnostico({ data, config }: { data: { total: number; prompts: Diag
   )
 }
 
-function BigChoiceCounts({ counts, total }: { counts: Record<string, number>; total: number }) {
-  const entries = Object.entries(counts)
-  const max = Math.max(1, ...entries.map(([, n]) => n))
-  return (
-    <div className="space-y-3.5">
-      {entries.map(([label, count], i) => (
-        <div key={i} className="space-y-1">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-lg md:text-xl font-semibold">{label}</span>
-            <span className="text-xl md:text-2xl font-extrabold tabular-nums shrink-0">
-              {pct(count, total)}
-              <span className="text-sm text-slate-400 font-bold">%</span>
-              <span className="ml-2 text-base text-slate-400 font-semibold">{count}</span>
-            </span>
-          </div>
-          <div className="h-7 rounded-lg bg-white/5 overflow-hidden">
-            <div
-              className={`h-full rounded-lg transition-all duration-700 ${BAR_COLORS[i % BAR_COLORS.length]}`}
-              style={{ width: `${Math.max(count > 0 ? 6 : 0, (count / max) * 100)}%` }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+function BigChoiceCounts({
+  counts,
+  total,
+  compact,
+}: {
+  counts: Record<string, number>
+  total: number
+  compact: boolean
+}) {
+  const rows: BarRow[] = Object.entries(counts).map(([label, count]) => ({ id: label, label, count }))
+  return <DashboardHBars rows={rows} total={total} compact={compact} />
 }
 
-function BigScale({ result }: { result: Extract<DiagPromptResult, { kind: 'scale' }> }) {
-  const max = Math.max(1, ...[1, 2, 3, 4, 5].map((n) => result.counts[String(n)] || 0))
+// Gráfico de columnas estilo dashboard para la escala 1-5, con cuadrícula,
+// valores sobre cada columna y línea de promedio.
+function BigScale({
+  result,
+  compact,
+  minLabel,
+  maxLabel,
+}: {
+  result: Extract<DiagPromptResult, { kind: 'scale' }>
+  compact: boolean
+  minLabel?: string
+  maxLabel?: string
+}) {
+  const counts = [1, 2, 3, 4, 5].map((n) => result.counts[String(n)] || 0)
+  const max = Math.max(1, ...counts)
+  const chartH = compact ? 'h-40' : 'h-52 md:h-64'
+  const barColors = [
+    'from-red-600 to-red-400',
+    'from-orange-600 to-orange-400',
+    'from-energy-600 to-energy-400',
+    'from-brand-600 to-brand-400',
+    'from-viva-600 to-viva-400',
+  ]
   return (
-    <div className="flex flex-wrap items-end gap-8">
-      <div className="flex items-end gap-3" aria-label="Distribución de la escala">
-        {[1, 2, 3, 4, 5].map((n) => {
-          const count = result.counts[String(n)] || 0
-          return (
-            <div key={n} className="flex w-14 md:w-16 flex-col items-center gap-1.5">
-              <span className="text-lg font-bold tabular-nums text-slate-200">{count}</span>
-              <div className="flex h-32 md:h-40 w-full items-end rounded-xl bg-white/5 overflow-hidden">
-                <div
-                  className={`w-full rounded-xl transition-all duration-700 ${
-                    n >= 4 ? 'bg-viva-500' : n === 3 ? 'bg-energy-500' : 'bg-red-500'
-                  }`}
-                  style={{ height: `${Math.max(count > 0 ? 8 : 0, (count / max) * 100)}%` }}
-                />
+    <div className="flex flex-wrap items-stretch gap-4 md:gap-6">
+      <div className="flex-1 min-w-64 rounded-2xl bg-white/[0.03] border border-white/10 p-4 md:p-6">
+        <div className={`relative ${chartH}`}>
+          {/* Cuadrícula horizontal */}
+          {[25, 50, 75].map((t) => (
+            <div key={t} className="absolute inset-x-0 border-t border-white/[0.07]" style={{ bottom: `${t}%` }} />
+          ))}
+          {/* Línea de promedio */}
+          {result.total > 0 && (
+            <div className="absolute inset-x-0 z-10" style={{ bottom: `${(result.average / 5) * 100}%` }}>
+              <div className="relative border-t-2 border-dashed border-energy-400/80">
+                <span className="absolute -top-2.5 right-0 text-[10px] font-bold uppercase tracking-wider text-energy-300 bg-carbon-950/85 px-1.5 rounded">
+                  Promedio {result.average.toFixed(1)}
+                </span>
               </div>
-              <span className="text-base font-extrabold text-slate-400">{n}</span>
             </div>
-          )
-        })}
+          )}
+          {/* Columnas */}
+          <div className="absolute inset-0 grid grid-cols-5 gap-2 md:gap-4">
+            {[1, 2, 3, 4, 5].map((n, idx) => (
+              <div key={n} className="relative h-full">
+                <div className="absolute inset-x-0 top-0 h-8 flex items-end justify-center">
+                  <span className="text-lg md:text-2xl font-extrabold tabular-nums text-slate-100">
+                    {counts[idx]}
+                  </span>
+                </div>
+                <div className="absolute inset-x-1 bottom-0 top-9">
+                  <div
+                    className={`absolute bottom-0 inset-x-0 rounded-t-md bg-gradient-to-b ${barColors[idx]}`}
+                    style={{
+                      height: counts[idx] > 0 ? `${Math.max(6, (counts[idx] / max) * 100)}%` : '0%',
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Eje X */}
+        <div className="mt-2 grid grid-cols-5 gap-2 md:gap-4 border-t border-white/10 pt-2">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <span key={n} className="text-center text-base md:text-lg font-extrabold text-slate-300">
+              {n}
+            </span>
+          ))}
+        </div>
+        {(minLabel || maxLabel) && (
+          <div className="mt-1 flex justify-between text-xs text-slate-500 gap-4">
+            <span className="truncate">{minLabel}</span>
+            <span className="truncate text-right">{maxLabel}</span>
+          </div>
+        )}
       </div>
-      <div className="rounded-2xl bg-white/5 border border-white/10 px-8 py-5 text-center">
-        <p className="text-sm text-slate-400">Promedio del grupo</p>
-        <p className="text-6xl font-extrabold text-brand-300 tabular-nums leading-tight">
+
+      {/* KPI de promedio */}
+      <div className="flex flex-col justify-center items-center rounded-2xl bg-gradient-to-br from-brand-500/15 to-viva-500/10 border border-white/10 px-6 md:px-8 py-5 text-center min-w-44">
+        <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Promedio del grupo</p>
+        <p className={`mt-1 font-extrabold tabular-nums text-white leading-none ${compact ? 'text-5xl' : 'text-6xl md:text-7xl'}`}>
           {result.average.toFixed(1)}
-          <span className="text-2xl text-slate-400"> / 5</span>
+          <span className="text-2xl text-slate-400 font-bold"> / 5</span>
+        </p>
+        <div className="mt-3 h-2 w-36 rounded-full bg-white/10 overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-brand-500 to-viva-400"
+            style={{ width: `${(result.average / 5) * 100}%` }}
+          />
+        </div>
+        <p className="mt-2 text-sm text-slate-400">
+          {result.total} respuesta{result.total === 1 ? '' : 's'}
         </p>
       </div>
     </div>
   )
 }
 
-function BigDiagText({ result }: { result: Extract<DiagPromptResult, { kind: 'text' }> }) {
-  return (
-    <div className="space-y-4">
-      {result.keywords.length >= 3 && result.items.length >= 3 && (
-        <div className="flex flex-wrap gap-2.5">
-          {result.keywords.slice(0, 14).map((k) => (
-            <span
-              key={k.word}
-              className="rounded-full bg-brand-500/15 border border-brand-400/30 text-brand-200 px-4 py-1.5"
-              style={{
-                fontSize: `${Math.min(1, k.count / Math.max(1, result.keywords[0].count)) * 12 + 16}px`,
-                fontWeight: k.count >= 3 ? 700 : 500,
-              }}
-              title={`${k.count} menciones`}
-            >
-              {k.word}
-              {k.count > 1 && <sub className="text-[10px] text-slate-400 ml-1">{k.count}</sub>}
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="grid md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
-        {result.items.map((item, i) => (
-          <div key={i} className="rounded-xl bg-white/5 border border-white/10 p-4">
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="font-bold">{item.participant}</span>
-              <span className="text-xs text-slate-400">{relativeTime(item.at)}</span>
-            </div>
-            <p className="leading-snug text-slate-100 break-words">{item.text}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+// Texto del diagnóstico: solo palabras clave del grupo, nunca los comentarios
+function BigDiagText({
+  result,
+  compact,
+}: {
+  result: Extract<DiagPromptResult, { kind: 'text' }>
+  compact: boolean
+}) {
+  if (!result.keywords.length) {
+    return (
+      <p className="text-slate-400 text-sm">
+        Aún no hay suficientes respuestas para extraer palabras clave ({result.total} respuesta
+        {result.total === 1 ? '' : 's'}).
+      </p>
+    )
+  }
+  return <KeywordBoard words={result.keywords} total={result.total} compact={compact} />
 }

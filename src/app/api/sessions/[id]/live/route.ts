@@ -136,7 +136,8 @@ export async function POST(
     }
 
     return Response.json(response)
-  } catch {
+  } catch (err) {
+    console.error('[live] error agregando resultados:', err)
     return jsonError('Solicitud inválida', 400)
   }
 }

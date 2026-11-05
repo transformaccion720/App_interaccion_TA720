@@ -28,7 +28,7 @@ import {
   type MultipleChoiceConfig,
   type SemaforoConfig,
 } from './types'
-import { isMeaningfulWord, normalizeWord } from './codes'
+import { extractKeywordsFromTexts, isMeaningfulWord, normalizeWord } from './codes'
 
 export function parseConfig<T>(question: Pick<Question, 'type' | 'config'>): T {
   try {
@@ -226,16 +226,6 @@ function aggregateOpenText(
 
 // ---------- Diagnóstico situacional ----------
 
-function extractKeywords(text: string): string[] {
-  const seen = new Set<string>()
-  for (const raw of text.split(/[\s,.;:!¿?¡()"']+/)) {
-    const word = normalizeWord(raw)
-    if (!isMeaningfulWord(word)) continue
-    seen.add(word)
-  }
-  return [...seen]
-}
-
 function aggregateDiagnostico(
   configRaw: string,
   answers: { payload: string; participantName?: string; updatedAt?: Date }[]
@@ -253,7 +243,7 @@ function aggregateDiagnostico(
   const results: DiagnosticoResults['prompts'] = prompts.map((prompt: DiagPrompt) => {
     if (prompt.inputType === 'text') {
       const items: DiagTextResult['items'] = []
-      const freq = new Map<string, number>()
+      const texts: string[] = []
       for (const a of parsed) {
         const text = (a.payload.values?.[prompt.id] || '').toString()
         if (!text.trim()) continue
@@ -262,16 +252,11 @@ function aggregateDiagnostico(
           text: text.trim(),
           at: (a.updatedAt || new Date()).toISOString(),
         })
-        // Cada palabra cuenta una vez por participante (evita inflar repeticiones)
-        for (const word of extractKeywords(text)) {
-          freq.set(word, (freq.get(word) || 0) + 1)
-        }
+        texts.push(text)
       }
       items.sort((a, b) => b.at.localeCompare(a.at))
-      const keywords = [...freq.entries()]
-        .map(([word, count]) => ({ word, count }))
-        .sort((a, b) => b.count - a.count || a.word.localeCompare(b.word))
-        .slice(0, 24)
+      // Palabras clave: cada palabra cuenta una vez por participante
+      const keywords = extractKeywordsFromTexts(texts, 24)
       return { promptId: prompt.id, kind: 'text', total: items.length, items, keywords } satisfies DiagTextResult
     }
 

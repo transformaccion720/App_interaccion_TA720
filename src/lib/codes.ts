@@ -29,12 +29,48 @@ export const STOPWORDS = new Set([
   'ya', 'no', 'si', 'se', 'su', 'sus', 'lo', 'le', 'les', 'me', 'mi', 'mis',
   'te', 'tu', 'tus', 'nos', 'nuestro', 'nuestra', 'como', 'cuando', 'donde',
   'cual', 'cuales', 'quien', 'quienes', 'porque', 'pues', 'aun', 'tambien',
-  'hay', 'fue', 'han', 'ha', 'he', 'hemos', 'han', 'sido', 'estoy', 'estamos',
+  'hay', 'fue', 'han', 'ha', 'he', 'hemos', 'sido', 'estoy', 'estamos',
+  // Muletillas y adverbios sin contenido (no aportan como palabras clave)
+  'nada', 'solo', 'sola', 'casi', 'mucho', 'muchos', 'mucha', 'muchas',
+  'poco', 'pocos', 'poca', 'pocas', 'demasiado', 'demasiada', 'todo', 'todos',
+  'toda', 'todas', 'algo', 'alguien', 'nunca', 'siempre', 'bien', 'mal',
+  'tampoco', 'quizas', 'tal', 'vez', 'veces', 'cada', 'otro', 'otra', 'otros',
+  'otras', 'mismo', 'misma', 'mismos', 'mismas', 'tan', 'tanto', 'tanta',
+  'tantos', 'tantas', 'algun', 'alguno', 'alguna', 'algunos', 'algunas',
+  'ningun', 'ninguno', 'ninguna', 'principalmente', 'generalmente',
+  'basicamente', 'digamos', 'sea', 'hacer', 'hace', 'hago', 'hacen',
+  'hacemos', 'puedo', 'puede', 'pueden', 'podemos', 'quiero', 'creo',
+  'voy', 'va', 'van', 'vas', 'vamos', 'uso', 'usar', 'usando', 'usado',
+  'usada', 'usos', 'utilizar', 'utilizo', 'utilizando', 'ver', 'hola',
+  'gracias', 'cosas', 'cosa',
   'the', 'and', 'of', 'to', 'in', 'is', 'it', 'a', 'an', 'for', 'on', 'with',
 ])
 
 export function isMeaningfulWord(word: string): boolean {
   return word.length >= 2 && !STOPWORDS.has(word)
+}
+
+// Extrae palabras clave frecuentes a partir de textos libres (uno por
+// participante): cada palabra cuenta una vez por texto para no inflar
+// repeticiones del mismo autor. Devuelve la lista ordenada por frecuencia.
+export function extractKeywordsFromTexts(
+  texts: string[],
+  limit = 24
+): { word: string; count: number }[] {
+  const freq = new Map<string, number>()
+  for (const text of texts) {
+    const seen = new Set<string>()
+    for (const raw of text.split(/[\s,.;:!¿?¡()"']+/)) {
+      const word = normalizeWord(raw)
+      if (!isMeaningfulWord(word)) continue
+      seen.add(word)
+    }
+    for (const word of seen) freq.set(word, (freq.get(word) || 0) + 1)
+  }
+  return [...freq.entries()]
+    .map(([word, count]) => ({ word, count }))
+    .sort((a, b) => b.count - a.count || a.word.localeCompare(b.word))
+    .slice(0, limit)
 }
 
 // Formatea una fecha relativa simple en español
