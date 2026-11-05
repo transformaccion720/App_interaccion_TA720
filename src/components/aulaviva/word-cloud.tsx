@@ -1,6 +1,8 @@
 'use client'
 
-// Nube de palabras sencilla y legible (sin animaciones exageradas)
+// Nube de palabras sencilla y legible (sin animaciones exageradas).
+// `scale` y `dark` permiten usarla en modo presentación (letras grandes sobre
+// fondo oscuro) sin duplicar el componente.
 import { useMemo } from 'react'
 
 const PALETTE = [
@@ -12,6 +14,18 @@ const PALETTE = [
   'text-cyan-700',
   'text-orange-600',
   'text-fuchsia-600',
+]
+
+// Variantes claras para fondos oscuros (modo presentación)
+const PALETTE_DARK = [
+  'text-brand-300',
+  'text-viva-400',
+  'text-energy-400',
+  'text-rose-400',
+  'text-violet-400',
+  'text-cyan-300',
+  'text-orange-300',
+  'text-fuchsia-400',
 ]
 
 function hashCode(str: string): number {
@@ -26,10 +40,15 @@ function hashCode(str: string): number {
 export function WordCloud({
   words,
   className,
+  scale = 1,
+  dark = false,
 }: {
   words: { word: string; count: number }[]
   className?: string
+  scale?: number
+  dark?: boolean
 }) {
+  const palette = dark ? PALETTE_DARK : PALETTE
   const sized = useMemo(() => {
     if (!words.length) return []
     const max = Math.max(...words.map((w) => w.count))
@@ -37,12 +56,12 @@ export function WordCloud({
     const span = Math.max(1, max - min)
     return words.map((w) => {
       const ratio = (w.count - min) / span // 0..1
-      const fontSize = 14 + ratio * 30 + (w.count > 1 ? 4 : 0) // 14–48px
-      const color = PALETTE[hashCode(w.word) % PALETTE.length]
+      const fontSize = Math.min(110, (14 + ratio * 30 + (w.count > 1 ? 4 : 0)) * scale)
+      const color = palette[hashCode(w.word) % palette.length]
       const weight = w.count === max ? 700 : ratio > 0.5 ? 600 : 500
       return { ...w, fontSize, color, weight }
     })
-  }, [words])
+  }, [words, scale, palette])
 
   if (!sized.length) {
     return (

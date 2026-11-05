@@ -87,7 +87,7 @@ export default function Home() {
             </Button>
             <Button asChild size="sm">
               <Link href="/admin">
-                <ShieldCheck className="h-4 w-4 mr-1" /> Panel docente
+                <ShieldCheck className="h-4 w-4 mr-1" /> Panel de administración
               </Link>
             </Button>
           </nav>
@@ -119,7 +119,7 @@ export default function Home() {
                 <Button asChild size="lg" className="min-h-11 bg-brand-500 hover:bg-brand-400 text-white font-semibold">
                   <Link href="/admin">
                     <ShieldCheck className="h-5 w-5 mr-2" />
-                    Entrar como docente
+                    Entrar como trainer
                   </Link>
                 </Button>
               </div>
@@ -140,7 +140,7 @@ export default function Home() {
             <Card className="w-full max-w-md md:justify-self-end border-slate-700/60 bg-white text-foreground shadow-2xl shadow-brand-950/40">
               <CardHeader>
                 <CardTitle className="text-xl">¿Tienes un código?</CardTitle>
-                <CardDescription>Únete a la sesión de tu profesor. Sin cuenta.</CardDescription>
+                <CardDescription>Únete a la sesión de tu trainer. Sin cuenta.</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={goJoin} className="space-y-3">
@@ -161,7 +161,7 @@ export default function Home() {
                     Unirme a la sesión
                   </Button>
                   <p className="text-xs text-muted-foreground text-center">
-                    También puedes escanear el código QR que proyecta tu profesor.
+                    También puedes escanear el código QR que proyecta tu trainer.
                   </p>
                 </form>
               </CardContent>
@@ -209,7 +209,7 @@ export default function Home() {
             <h2 className="text-2xl md:text-3xl font-bold text-center mb-10">Cómo funciona</h2>
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { n: '1', t: 'Crea tu sesión', d: 'Regístrate como docente y registra las preguntas: opción múltiple, semáforo, nube de palabras, árbol de decisiones, diagnóstico situacional o abiertas, con imágenes de apoyo.' },
+                { n: '1', t: 'Crea tu sesión', d: 'Inicia sesión como trainer y registra las preguntas: opción múltiple, semáforo, nube de palabras, árbol de decisiones, diagnóstico situacional o abiertas, con imágenes de apoyo.' },
                 { n: '2', t: 'Comparte código o QR', d: 'Los alumnos entran desde su celular con el código de 6 caracteres o escaneando el QR. Sin cuentas ni instalaciones.' },
                 { n: '3', t: 'Conduce en vivo', d: 'Activa cada pregunta, mira quién responde en tiempo real, qué personas faltan y muestra los resultados cuando tú decidas.' },
               ].map((s) => (
@@ -234,7 +234,7 @@ export default function Home() {
           </div>
           <div className="flex gap-4">
             <Link href="/join" className="hover:text-foreground">Unirme a una sesión</Link>
-            <Link href="/admin" className="hover:text-foreground">Panel docente</Link>
+            <Link href="/admin" className="hover:text-foreground">Panel de administración</Link>
           </div>
         </div>
       </footer>

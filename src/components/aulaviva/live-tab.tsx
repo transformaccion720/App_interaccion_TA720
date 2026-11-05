@@ -18,6 +18,7 @@ import {
   CircleDashed,
   Hourglass,
   Users,
+  MonitorPlay,
 } from 'lucide-react'
 import { QUESTION_TYPE_LABELS } from '@/lib/types'
 
@@ -25,10 +26,12 @@ export function LiveTab({
   live,
   onStateChange,
   busyQuestion,
+  onPresent,
 }: {
   live: AdminLive
   onStateChange: (question: QuestionAdmin, state: 'open' | 'revealed' | 'closed') => void
   busyQuestion: string | null
+  onPresent: (questionId: string) => void
 }) {
   const active = live.activeQuestion
   const participants = live.participants.length
@@ -48,7 +51,7 @@ export function LiveTab({
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 {live.questions.length === 0
                   ? 'Añade preguntas en la pestaña «Preguntas» para comenzar la sesión.'
-                  : 'Activa una pregunta para presentarla. Los alumnos la verán al instante en su celular.'}
+                  : 'Activa una pregunta para presentarla. Los participantes la verán al instante en su celular.'}
               </p>
             </div>
             {live.questions.length > 0 && (
@@ -134,7 +137,7 @@ export function LiveTab({
                 )}
                 {active.state === 'open' && (
                   <Button size="sm" variant="secondary" onClick={() => onStateChange(active, 'revealed')} disabled={busyQuestion === active.id}>
-                    <Eye className="h-4 w-4 mr-1.5" /> Mostrar resultados a los alumnos
+                    <Eye className="h-4 w-4 mr-1.5" /> Mostrar resultados a los participantes
                   </Button>
                 )}
                 {(active.state === 'open' || active.state === 'revealed') && (
@@ -143,14 +146,28 @@ export function LiveTab({
                   </Button>
                 )}
                 <NextQuestionButton live={live} onStateChange={onStateChange} busyQuestion={busyQuestion} />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto bg-carbon-950 text-white border-carbon-950 hover:bg-carbon-800 hover:text-white"
+                  onClick={() => onPresent(active.id)}
+                  title="Proyectar esta pregunta y sus resultados a la audiencia"
+                >
+                  <MonitorPlay className="h-4 w-4 mr-1.5" /> Presentar
+                </Button>
               </div>
             </div>
 
-            {/* Resultados (siempre visibles para el docente) */}
+            {/* Resultados (siempre visibles para el trainer) */}
             <div className="rounded-2xl border bg-card p-5">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">
-                Resultados en tiempo real {active.state !== 'revealed' && '(solo tú los ves)'}
-              </h3>
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Resultados en tiempo real {active.state !== 'revealed' && '(solo tú los ves)'}
+                </h3>
+                <Button size="sm" variant="outline" onClick={() => onPresent(active.id)}>
+                  <MonitorPlay className="h-4 w-4 mr-1.5" /> Presentar en pantalla
+                </Button>
+              </div>
               {live.activeResults ? (
                 <ResultsView results={live.activeResults} config={active.config} showCorrect={active.type === 'multiple_choice' ? !!(active.config as { showCorrect?: boolean }).showCorrect : true} />
               ) : (

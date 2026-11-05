@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Transform Acción 720 — Participación en clase en tiempo real",
   description:
-    "Plataforma de interacción para el aula: códigos y QR para unirse, opción múltiple, semáforo, nube de palabras, árbol de decisiones, diagnóstico situacional y panel de gestión en vivo con login para docentes.",
+    "Plataforma de interacción para el aula: códigos y QR para unirse, opción múltiple, semáforo, nube de palabras, árbol de decisiones, diagnóstico situacional y panel de gestión en vivo con login para trainers y administradores.",
   keywords: ["aula", "interacción", "encuestas", "quiz", "clase", "tiempo real", "diagnóstico"],
 };
 

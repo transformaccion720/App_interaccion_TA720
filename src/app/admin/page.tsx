@@ -1,9 +1,10 @@
 'use client'
 
-// /admin — inicio de sesión del docente y panel con sus sesiones.
+// /admin — inicio de sesión del equipo (trainer, moderador o administrador)
+// y panel con sus sesiones.
 // Los alumnos NO inician sesión: entran con el código o QR desde /join.
 // El registro público está deshabilitado: solo el ADMIN crea cuentas
-// (docentes o moderadores) desde la gestión interna de usuarios.
+// (trainers o moderadores) desde la gestión interna de usuarios.
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -74,7 +75,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
 
 const ROLE_META: Record<string, { label: string; cls: string }> = {
   ADMIN: { label: 'Administrador', cls: 'bg-brand-100 text-brand-800' },
-  DOCENTE: { label: 'Docente', cls: 'bg-viva-100 text-viva-800' },
+  DOCENTE: { label: 'Trainer', cls: 'bg-viva-100 text-viva-800' },
   MODERADOR: { label: 'Moderador', cls: 'bg-energy-100 text-energy-800' },
 }
 
@@ -178,7 +179,7 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
 
           <div className="space-y-6 max-w-md">
             <h1 className="text-3xl lg:text-4xl font-extrabold leading-tight tracking-tight">
-              El panel del docente,{' '}
+              El panel del trainer,{' '}
               <span className="text-brand-300">protegido y siempre a mano</span>
             </h1>
             <p className="text-slate-300 leading-relaxed">
@@ -269,7 +270,7 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
           <div className="rounded-xl border border-brand-100 bg-brand-50/70 p-4 text-sm flex gap-2.5">
             <Info className="h-4.5 w-4.5 mt-0.5 shrink-0 text-brand-600" />
             <p className="text-muted-foreground">
-              Las cuentas de <strong className="text-foreground">docente</strong> o{' '}
+              Las cuentas de <strong className="text-foreground">trainer</strong> o{' '}
               <strong className="text-foreground">moderador</strong> las crea internamente el
               administrador de la plataforma. Si necesitas una, solicítala a tu administración.
             </p>
@@ -305,7 +306,7 @@ function Dashboard({
           <div className="flex items-center gap-3 min-w-0">
             <BrandLogo className="h-8 w-auto shrink-0" dark />
             <div className="min-w-0 border-l border-white/15 pl-3">
-              <p className="font-bold leading-none">Panel docente</p>
+              <p className="font-bold leading-none">Panel de administración</p>
               <p className="text-xs text-slate-300 truncate">Transform Acción 720</p>
             </div>
           </div>
@@ -352,7 +353,7 @@ function Dashboard({
       </main>
 
       <footer className="mt-auto border-t bg-white py-4 text-center text-xs text-muted-foreground">
-        Transform Acción 720 — panel docente ·{' '}
+        Transform Acción 720 — panel de administración ·{' '}
         <Link href="/join" className="hover:text-foreground">¿Tienes un código? Únete aquí</Link>
       </footer>
     </div>
@@ -513,7 +514,7 @@ function SessionsList({
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Abrir con código de administrador</CardTitle>
           <CardDescription>
-            Para sesiones creadas antes del inicio de sesión o compartidas por otro docente.
+            Para sesiones creadas antes del inicio de sesión o compartidas por otro trainer.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -683,7 +684,7 @@ function UsersAdmin() {
       }
       toast({
         title: 'Cuenta creada',
-        description: `${data.teacher.email} ya puede iniciar sesión como ${role === 'DOCENTE' ? 'docente' : 'moderador'}.`,
+        description: `${data.teacher.email} ya puede iniciar sesión como ${role === 'DOCENTE' ? 'trainer' : 'moderador'}.`,
       })
       setName(''); setEmail(''); setPassword(''); setRole('DOCENTE')
       await loadUsers()
@@ -751,7 +752,7 @@ function UsersAdmin() {
           </span>
           <CardTitle className="text-xl">Crear usuario interno</CardTitle>
           <CardDescription>
-            Genera cuentas de docente o moderador. Esta opción solo es visible para el administrador.
+            Genera cuentas de trainer o moderador. Esta opción solo es visible para el administrador.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -774,7 +775,7 @@ function UsersAdmin() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="docente@ejemplo.com"
+                placeholder="trainer@ejemplo.com"
                 className="h-11"
                 autoComplete="off"
               />
@@ -798,7 +799,7 @@ function UsersAdmin() {
                   <SelectValue placeholder="Selecciona el rol" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DOCENTE">Docente — crea y gestiona sus sesiones</SelectItem>
+                  <SelectItem value="DOCENTE">Trainer — crea y gestiona sus sesiones</SelectItem>
                   <SelectItem value="MODERADOR">Moderador — apoya la gestión en vivo</SelectItem>
                 </SelectContent>
               </Select>
@@ -846,7 +847,7 @@ function UsersAdmin() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ADMIN">Administrador</SelectItem>
-                    <SelectItem value="DOCENTE">Docente</SelectItem>
+                    <SelectItem value="DOCENTE">Trainer</SelectItem>
                     <SelectItem value="MODERADOR">Moderador</SelectItem>
                   </SelectContent>
                 </Select>

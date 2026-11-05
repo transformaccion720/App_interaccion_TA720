@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/client-auth'
 import { QrDialog } from '@/components/aulaviva/qr-dialog'
+import { PresentationOverlay } from '@/components/aulaviva/presentation'
 import { LiveTab } from '@/components/aulaviva/live-tab'
 import { QuestionsTab } from '@/components/aulaviva/questions-tab'
 import { ParticipantsTab } from '@/components/aulaviva/participants-tab'
@@ -43,6 +44,7 @@ export default function AdminSessionPage() {
   const [connectionError, setConnectionError] = useState(false)
   const [busyQuestion, setBusyQuestion] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [presentId, setPresentId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editMax, setEditMax] = useState(100)
   const busyRef = useRef(false)
@@ -136,7 +138,7 @@ export default function AdminSessionPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-brand-50 to-white px-4">
         <div className="w-full max-w-sm space-y-4 text-center">
-          <h1 className="text-2xl font-bold">Panel del docente</h1>
+          <h1 className="text-2xl font-bold">Panel de administración</h1>
           <p className="text-sm text-muted-foreground">
             Esta sesión no está asociada a tu cuenta. Ingresa tu cuenta en{' '}
             <Link href="/admin" className="text-primary hover:underline">/admin</Link> o usa el
@@ -397,7 +399,7 @@ export default function AdminSessionPage() {
           </TabsList>
 
           <TabsContent value="live">
-            <LiveTab live={live} onStateChange={setQuestionState} busyQuestion={busyQuestion} />
+            <LiveTab live={live} onStateChange={setQuestionState} busyQuestion={busyQuestion} onPresent={setPresentId} />
           </TabsContent>
 
           <TabsContent value="questions">
@@ -417,10 +419,20 @@ export default function AdminSessionPage() {
           </TabsContent>
 
           <TabsContent value="results">
-            <ResultsTab live={live} adminCode={adminCode || ''} />
+            <ResultsTab live={live} adminCode={adminCode || ''} onPresent={setPresentId} />
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Modo presentación de resultados (pantalla completa) */}
+      {presentId && live && (
+        <PresentationOverlay
+          live={live}
+          initialQuestionId={presentId}
+          onClose={() => setPresentId(null)}
+          onRefresh={() => void refresh()}
+        />
+      )}
 
       {/* Diálogo de ajustes */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -439,7 +451,7 @@ export default function AdminSessionPage() {
               <Input id="st-max" type="number" min={2} max={500} value={editMax} onChange={(e) => setEditMax(Number(e.target.value))} className="h-10 w-32" />
             </div>
             <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground space-y-1">
-              <p>Código de acceso de los alumnos: <span className="font-bold text-foreground tracking-wider">{live.session.joinCode}</span></p>
+              <p>Código de acceso de los participantes: <span className="font-bold text-foreground tracking-wider">{live.session.joinCode}</span></p>
               <p className="flex items-center gap-1">
                 Tu código de administrador:
                 <button
@@ -463,7 +475,7 @@ export default function AdminSessionPage() {
       </Dialog>
 
       <footer className="mt-auto border-t bg-white py-3 text-center text-xs text-muted-foreground">
-        Transform Acción 720 — panel docente · {live.session.title}
+        Transform Acción 720 — panel de administración · {live.session.title}
       </footer>
     </div>
   )

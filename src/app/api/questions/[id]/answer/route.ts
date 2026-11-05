@@ -1,4 +1,5 @@
-// POST /api/questions/[id]/answer — registra o actualiza la respuesta de un participante
+// POST /api/questions/[id]/answer — registra la respuesta de un participante.
+// Las respuestas son inmutables: si ya envió, se rechaza cualquier reintento.
 import { db } from '@/lib/db'
 import { jsonError, maybeAutoClose } from '@/lib/api-helpers'
 
@@ -29,16 +30,24 @@ export async function POST(
       return jsonError('Respuesta inválida')
     }
 
-    const payload = JSON.stringify(body.payload)
-    await db.answer.upsert({
+    // Bloqueo de respuestas: una vez enviada, la respuesta queda fija.
+    // El participante NO puede modificarla mientras la pregunta esté abierta.
+    const existing = await db.answer.findUnique({
       where: {
         questionId_participantId: {
           questionId: id,
           participantId: participant.id,
         },
       },
-      create: { questionId: id, participantId: participant.id, payload },
-      update: { payload },
+      select: { id: true },
+    })
+    if (existing) {
+      return jsonError('Ya enviaste tu respuesta y ya no puede modificarse', 409)
+    }
+
+    const payload = JSON.stringify(body.payload)
+    await db.answer.create({
+      data: { questionId: id, participantId: participant.id, payload },
     })
 
     // Señal de vida

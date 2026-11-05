@@ -69,7 +69,7 @@ function JoinForm() {
     <Card className="w-full max-w-md shadow-lg shadow-brand-100/50">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Unirme a una sesión</CardTitle>
-        <CardDescription>Ingresa el código que te compartió tu profesor</CardDescription>
+        <CardDescription>Ingresa el código que te compartió tu trainer</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-4">

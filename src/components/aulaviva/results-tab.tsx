@@ -5,9 +5,18 @@ import type { AdminLive, QuestionAdmin } from '@/lib/types'
 import { QUESTION_TYPE_LABELS, QUESTION_TYPE_ICONS } from '@/lib/types'
 import { ResultsView } from './results'
 import { Badge } from '@/components/ui/badge'
-import { Download } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Download, MonitorPlay } from 'lucide-react'
 
-export function ResultsTab({ live, adminCode }: { live: AdminLive; adminCode: string }) {
+export function ResultsTab({
+  live,
+  adminCode,
+  onPresent,
+}: {
+  live: AdminLive
+  adminCode: string
+  onPresent: (questionId: string) => void
+}) {
   const qs = live.questions
 
   return (
@@ -46,9 +55,19 @@ export function ResultsTab({ live, adminCode }: { live: AdminLive; adminCode: st
                   {QUESTION_TYPE_ICONS[q.type]} {q.title}
                 </h3>
               </div>
-              <Badge variant="secondary" className="shrink-0">
-                {q.answeredCount} respuesta{q.answeredCount === 1 ? '' : 's'}
-              </Badge>
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge variant="secondary">
+                  {q.answeredCount} respuesta{q.answeredCount === 1 ? '' : 's'}
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onPresent(q.id)}
+                  title="Proyectar esta pregunta a la audiencia en pantalla completa"
+                >
+                  <MonitorPlay className="h-4 w-4 mr-1.5" /> Presentar
+                </Button>
+              </div>
             </div>
 
             {q.imageUrl && (

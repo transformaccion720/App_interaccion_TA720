@@ -95,7 +95,7 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
       if (!res.ok) {
         toast({ title: data.error || 'No se pudo enviar la respuesta', variant: 'destructive' })
       } else {
-        toast({ title: '¡Respuesta registrada!', description: 'Puedes cambiarla mientras la pregunta esté abierta.' })
+        toast({ title: '¡Respuesta registrada!', description: 'Quedó guardada y bloqueada: ya no puedes modificarla.' })
         await sync()
       }
     } catch {
@@ -178,7 +178,7 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
               <Hourglass className="h-12 w-12 mx-auto text-brand-600 animate-pulse" />
               <h2 className="text-xl font-bold">¡Ya estás dentro!</h2>
               <p className="text-muted-foreground">
-                Espera a que tu profesor abra una pregunta.<br />
+                Espera a que el trainer abra una pregunta.<br />
                 Mantén esta pantalla abierta para participar.
               </p>
             </CardContent>
@@ -219,7 +219,7 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
                   <span>Respondieron: {state?.answeredCount ?? 0} de {state?.totalParticipants ?? 0}</span>
                   {answered && (
                     <span className="flex items-center gap-1 text-viva-700 font-medium">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Respuesta registrada — puedes cambiarla
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Respuesta enviada y bloqueada
                     </span>
                   )}
                 </div>
@@ -229,15 +229,28 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
 
             <Card>
               <CardContent className="pt-5">
-                {isOpen && state?.config && (
+                {isOpen && state?.config && !answered && (
                   <ParticipantQuestion
                     key={`${q.id}-${q.state}`}
                     question={q}
                     config={state.config}
-                    myAnswer={state.myAnswer}
+                    myAnswer={null}
                     onSubmit={submitAnswer}
                     submitting={submitting}
                   />
+                )}
+
+                {isOpen && answered && (
+                  <div className="py-6 text-center space-y-3">
+                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-viva-100">
+                      <CheckCircle2 className="h-8 w-8 text-viva-600" />
+                    </span>
+                    <h2 className="text-lg font-bold">¡Respuesta enviada!</h2>
+                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                      Tu respuesta quedó registrada y bloqueada — no se puede modificar.
+                      Mantén esta pantalla abierta: aquí verás los resultados cuando el trainer los muestre.
+                    </p>
+                  </div>
                 )}
 
                 {!isOpen && q.state === 'open' && !state?.config && (
@@ -251,7 +264,7 @@ export default function ParticipantSessionPage({ params }: { params: Promise<{ c
                     </h2>
                     <ResultsView results={state!.results!} config={state!.config} showCorrect />
                     <div className="rounded-lg bg-muted/70 p-4 text-center text-sm text-muted-foreground">
-                      Esperando a que tu profesor continúe con la siguiente pregunta…
+                      Esperando a que el trainer continúe con la siguiente pregunta…
                     </div>
                   </div>
                 )}
