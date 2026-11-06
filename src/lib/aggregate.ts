@@ -107,6 +107,39 @@ function aggregateSemaforo(
     return { total: answers.length, mode: 'single', items: [], counts }
   }
 
+  // Modo 'multi': N preguntas → cada participante asigna verde/amarillo/rojo a cada una
+  if (config.mode === 'multi') {
+    const items = (config.items || []).map((item) => ({
+      itemId: item.id,
+      valid: 0,
+      partial: 0,
+      invalid: 0,
+      overall: null as SemaforoVote | null,
+      green: 0,
+      yellow: 0,
+      red: 0,
+      colorOverall: null as SemaforoColor | null,
+    }))
+    const byId = new Map(items.map((i) => [i.itemId, i]))
+    for (const a of answers) {
+      const payload = parsePayload<SemaforoAnswer>(a)
+      for (const [itemId, color] of Object.entries(payload.colorVotes || {})) {
+        const item = byId.get(itemId)
+        if (!item) continue
+        if (color === 'green') item.green++
+        else if (color === 'yellow') item.yellow++
+        else if (color === 'red') item.red++
+      }
+    }
+    for (const item of items) {
+      const max = Math.max(item.green, item.yellow, item.red)
+      if (max === 0) continue
+      item.colorOverall =
+        max === item.green ? 'green' : max === item.yellow ? 'yellow' : 'red'
+    }
+    return { total: answers.length, mode: 'multi', items }
+  }
+
   // Modo 'items' (legacy): cada afirmación se evalúa válida/parcial/no válida
   const items = (config.items || []).map((item) => ({
     itemId: item.id,

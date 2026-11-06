@@ -256,6 +256,66 @@ function SemaforoForm({
     )
   }
 
+  // Modo 'multi': N preguntas → un color por cada una
+  if (config?.mode === 'multi') {
+    const [colorVotes, setColorVotes] = useState<Record<string, SemaforoColor>>(myAnswer?.colorVotes || {})
+    const labels = config.labels || {}
+    const items = config.items || []
+    const allVoted = items.length > 0 && items.every((i) => colorVotes[i.id])
+    return (
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!allVoted) {
+            toast({ title: 'Falta marcar el color en algunas preguntas', description: 'Cada pregunta necesita un color antes de enviar.', variant: 'destructive' })
+            return
+          }
+          onSubmit({ colorVotes } satisfies SemaforoAnswer)
+        }}
+      >
+        <div className="space-y-3">
+          {items.map((item, idx) => (
+            <fieldset key={item.id} className="rounded-xl border bg-card p-3.5 space-y-2.5">
+              <legend className="sr-only">Pregunta {idx + 1}</legend>
+              <p className="text-sm font-medium leading-snug">
+                <span className="text-muted-foreground mr-1.5">{idx + 1}.</span>
+                {item.text}
+              </p>
+              <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label={`Color para: ${item.text}`}>
+                {COLOR_CARDS.map((c) => {
+                  const active = colorVotes[item.id] === c.color
+                  return (
+                    <button
+                      key={c.color}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setColorVotes((prev) => ({ ...prev, [item.id]: c.color }))}
+                      className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-lg border-2 px-1 py-2.5 transition-colors ${
+                        active ? c.active : `border-border bg-card ${c.hover}`
+                      }`}
+                    >
+                      <span className={`h-5 w-5 rounded-full ${c.dot}`} aria-hidden />
+                      <span className="text-[11px] font-bold leading-tight text-center">
+                        {labels[c.color] || c.fallback}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </fieldset>
+          ))}
+        </div>
+        <SubmitButton
+          disabled={!allVoted}
+          submitting={submitting}
+          label={allVoted ? `Enviar ${items.length} respuesta${items.length === 1 ? '' : 's'}` : 'Marca un color en cada pregunta'}
+        />
+      </form>
+    )
+  }
+
   // Modo 'items' (legacy): cada afirmación se evalúa una a una
   const [votes, setVotes] = useState<Record<string, SemaforoVote>>(myAnswer?.votes || {})
 

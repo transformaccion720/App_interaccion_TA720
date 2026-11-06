@@ -50,6 +50,9 @@ def answer(q, idx, part):
     elif t == 'semaforo':
         if cfg.get('mode') == 'single':
             payload = {'color': ['green', 'yellow', 'red', 'green'][idx % 4]}
+        elif cfg.get('mode') == 'multi':
+            payload = {'colorVotes': {item['id']: ['green', 'yellow', 'red', 'green'][(idx + j) % 4]
+                                      for j, item in enumerate(cfg['items'])}}
         else:
             votes = {}
             for j, item in enumerate(cfg['items']):

@@ -45,7 +45,7 @@ import {
 
 export const TYPE_META: Record<QuestionType, { icon: typeof CheckSquare; desc: string }> = {
   multiple_choice: { icon: CheckSquare, desc: 'Opciones con selección única o múltiple' },
-  semaforo: { icon: TrafficCone, desc: 'Una pregunta que la audiencia responde con tarjetas Verde · Amarillo · Rojo' },
+  semaforo: { icon: TrafficCone, desc: 'Una o varias preguntas que la audiencia responde con tarjetas Verde · Amarillo · Rojo' },
   word_cloud: { icon: Cloud, desc: 'Lluvia de palabras clave en vivo' },
   decision_tree: { icon: Network, desc: 'Recorrido guiado por pasos hasta una conclusión' },
   open_text: { icon: MessageSquareText, desc: 'Respuestas escritas en texto libre' },
@@ -156,7 +156,7 @@ export function QuestionEditor({
       return opts.length >= 2
     }
     if (d.type === 'semaforo') {
-      if (d.config.mode === 'items') return d.config.items.filter((i) => i.text.trim()).length >= 1
+      if (d.config.mode === 'multi') return d.config.items.filter((i) => i.text.trim()).length >= 1
       return true // modo single: basta el enunciado, las tarjetas son fijas
     }
     if (d.type === 'word_cloud') return d.config.maxWords >= 1
@@ -393,7 +393,9 @@ function SemaforoEditor({
   draft: EditorDraft
   setConfig: (p: Partial<EditorDraft['config']>) => void
 }) {
-  const mode: 'single' | 'items' = draft.config.mode === 'items' ? 'items' : 'single'
+  // El modo 'items' (legacy) sigue viéndose en resultados, pero ya no se crea:
+  // las nuevas preguntas son 'single' (una consigna) o 'multi' (N preguntas).
+  const mode: 'single' | 'multi' = draft.config.mode === 'multi' ? 'multi' : 'single'
   const labels = draft.config.labels || {}
   const items = draft.config.items
 
@@ -418,23 +420,23 @@ function SemaforoEditor({
             mode === 'single' ? 'border-brand-600 bg-brand-50' : 'border-border bg-card hover:border-brand-300'
           }`}
         >
-          <p className="text-sm font-semibold">Pregunta única</p>
+          <p className="text-sm font-semibold">Una pregunta</p>
           <p className="text-xs text-muted-foreground leading-snug mt-0.5">
-            La audiencia responde con una tarjeta: 🟢 Verde · 🟡 Amarillo · 🔴 Rojo
+            La audiencia responde una sola consigna con una tarjeta: 🟢 · 🟡 · 🔴
           </p>
         </button>
         <button
           type="button"
           role="radio"
-          aria-checked={mode === 'items'}
-          onClick={() => setConfig({ mode: 'items' })}
+          aria-checked={mode === 'multi'}
+          onClick={() => setConfig({ mode: 'multi' })}
           className={`rounded-xl border-2 p-3 text-left transition-colors ${
-            mode === 'items' ? 'border-brand-600 bg-brand-50' : 'border-border bg-card hover:border-brand-300'
+            mode === 'multi' ? 'border-brand-600 bg-brand-50' : 'border-border bg-card hover:border-brand-300'
           }`}
         >
-          <p className="text-sm font-semibold">Varias afirmaciones</p>
+          <p className="text-sm font-semibold">Varias preguntas</p>
           <p className="text-xs text-muted-foreground leading-snug mt-0.5">
-            Cada afirmación se evalúa por separado con el semáforo
+            Agregas N preguntas y cada una se responde con su tarjeta de color
           </p>
         </button>
       </div>
@@ -481,21 +483,20 @@ function SemaforoEditor({
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            Cada afirmación será evaluada por los alumnos con el semáforo: 🟢 Válida · 🟡 Parcial · 🔴 No válida.
+            Agrega las preguntas debajo. Cada participante verá todas y marcará un color en cada una:
+            🟢 Verde · 🟡 Amarillo · 🔴 Rojo.
           </p>
+
+          {/* Lista de preguntas */}
           {items.map((item, i) => (
             <div key={item.id} className="flex items-center gap-2">
-              <span
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-                  draft.config.allowPartial ? 'bg-energy-100 text-energy-700' : 'bg-viva-100 text-viva-700'
-                }`}
-              >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-brand-700">
                 {i + 1}
               </span>
               <Input
                 value={item.text}
                 onChange={(e) => update(i, e.target.value)}
-                placeholder={`Afirmación ${i + 1}`}
+                placeholder={`Pregunta ${i + 1}`}
                 maxLength={250}
                 className="h-10"
               />
@@ -505,22 +506,38 @@ function SemaforoEditor({
                 size="icon"
                 className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
                 onClick={() => setConfig({ items: items.filter((_, j) => j !== i) })}
-                aria-label={`Eliminar afirmación ${i + 1}`}
+                aria-label={`Eliminar pregunta ${i + 1}`}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
           ))}
-          {items.length < 10 && (
+          {items.length < 20 && (
             <Button type="button" variant="outline" size="sm" onClick={() => setConfig({ items: [...items, { id: uid(), text: '' }] })}>
-              <Plus className="h-4 w-4 mr-1" /> Añadir afirmación
+              <Plus className="h-4 w-4 mr-1" /> Añadir pregunta
             </Button>
           )}
-          <div className="flex items-center justify-between gap-3 pt-2">
-            <Label htmlFor="sf-partial" className="font-normal">
-              Incluir la opción amarilla «Parcial»
-            </Label>
-            <Switch id="sf-partial" checked={!!draft.config.allowPartial} onCheckedChange={(v) => setConfig({ allowPartial: v })} />
+
+          {/* Etiquetas opcionales compartidas */}
+          <div className="space-y-2 rounded-xl border bg-muted/30 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Texto de las tarjetas (opcional, igual para todas las preguntas)
+            </p>
+            {SEMAFORO_CARD_COLORS.map(({ color, dot }) => (
+              <div key={color} className="flex items-center gap-2">
+                <span className={`h-3 w-3 shrink-0 rounded-full ${dot}`} aria-hidden />
+                <Input
+                  value={labels[color] || ''}
+                  onChange={(e) => setLabel(color, e.target.value)}
+                  placeholder={color === 'green' ? 'Verde (p. ej. Puedo compartirla)' : color === 'yellow' ? 'Amarillo (p. ej. Con cuidado)' : 'Rojo (p. ej. Nunca)'}
+                  maxLength={60}
+                  className="h-9"
+                />
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              Si lo dejas vacío se usan los nombres Verde, Amarillo y Rojo.
+            </p>
           </div>
         </>
       )}

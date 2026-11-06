@@ -73,6 +73,21 @@ export async function GET(
             red: (config.labels as Record<string, string> | undefined)?.red || 'Rojo',
           }
           answerText = p.color ? labels[p.color] || p.color : ''
+        } else if (config.mode === 'multi') {
+          // Modo varias preguntas: color por cada pregunta
+          const p = payload as unknown as SemaforoAnswer
+          const items = ((config.items as { id: string; text: string }[]) || [])
+          const labels: Record<string, string> = {
+            green: (config.labels as Record<string, string> | undefined)?.green || 'Verde',
+            yellow: (config.labels as Record<string, string> | undefined)?.yellow || 'Amarillo',
+            red: (config.labels as Record<string, string> | undefined)?.red || 'Rojo',
+          }
+          answerText = Object.entries(p.colorVotes || {})
+            .map(([itemId, color]) => {
+              const item = items.find((i) => i.id === itemId)
+              return `${item?.text || itemId}: ${labels[color] || color}`
+            })
+            .join(' | ')
         } else {
           const p = payload as unknown as SemaforoAnswer
           const items = ((config.items as { id: string; text: string }[]) || [])

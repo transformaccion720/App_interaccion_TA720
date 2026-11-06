@@ -43,7 +43,7 @@ export interface MultipleChoiceConfig {
   showCorrect?: boolean // resaltar la(s) correcta(s) en resultados
 }
 
-export type SemaforoMode = 'single' | 'items'
+export type SemaforoMode = 'single' | 'multi' | 'items'
 export type SemaforoColor = 'green' | 'yellow' | 'red'
 
 export interface SemaforoItem {
@@ -52,10 +52,10 @@ export interface SemaforoItem {
 }
 
 export interface SemaforoConfig {
-  mode?: SemaforoMode // 'single' (por defecto): una pregunta → tarjetas verde/amarillo/rojo
-  items: SemaforoItem[] // (modo items) afirmaciones evaluadas una a una
+  mode?: SemaforoMode // 'single': una pregunta → tarjetas · 'multi': N preguntas → tarjetas · 'items': legacy
+  items: SemaforoItem[] // (modos multi e items) afirmaciones/preguntas evaluadas una a una
   allowPartial?: boolean // (modo items) permitir el punto amarillo "Parcial"
-  labels?: Partial<Record<SemaforoColor, string>> // (modo single) etiquetas de las tarjetas
+  labels?: Partial<Record<SemaforoColor, string>> // (modos single y multi) etiquetas de las tarjetas
 }
 
 export type SemaforoVote = 'valid' | 'partial' | 'invalid'
@@ -121,6 +121,7 @@ export interface MultipleChoiceAnswer {
 export interface SemaforoAnswer {
   votes?: Record<string, SemaforoVote> // (modo items) itemId → voto
   color?: SemaforoColor // (modo single) color elegido
+  colorVotes?: Record<string, SemaforoColor> // (modo multi) itemId → color elegido
 }
 
 export interface WordCloudAnswer {
@@ -184,16 +185,20 @@ export interface MultipleChoiceResults {
 
 export interface SemaforoItemResults {
   itemId: string
-  valid: number
+  valid: number // (modo items)
   partial: number
   invalid: number
   overall: SemaforoVote | null
+  green?: number // (modo multi)
+  yellow?: number
+  red?: number
+  colorOverall?: SemaforoColor | null // (modo multi) color predominante del ítem
 }
 
 export interface SemaforoResults {
   total: number
   mode: SemaforoMode
-  items: SemaforoItemResults[] // (modo items)
+  items: SemaforoItemResults[] // (modos items y multi)
   counts?: Record<SemaforoColor, number> // (modo single) votos por color
 }
 

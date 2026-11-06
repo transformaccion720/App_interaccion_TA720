@@ -169,6 +169,101 @@ function SemaforoResultsView({
     )
   }
 
+  // Modo 'multi': resumen ejecutivo por pregunta (verde · amarillo · rojo)
+  if (data.mode === 'multi') {
+    const labels = config?.labels || {}
+    const cfgItems = config?.items || []
+    const totalVotes = data.items.reduce(
+      (s, it) => s + (it.green || 0) + (it.yellow || 0) + (it.red || 0), 0
+    )
+    const totals = data.items.reduce(
+      (acc, it) => ({
+        green: acc.green + (it.green || 0),
+        yellow: acc.yellow + (it.yellow || 0),
+        red: acc.red + (it.red || 0),
+      }),
+      { green: 0, yellow: 0, red: 0 }
+    )
+    const colorMeta: { color: SemaforoColor; label: string; bar: string; chip: string }[] = [
+      { color: 'green', label: labels.green || 'Verde', bar: 'bg-viva-500', chip: 'bg-viva-100 text-viva-800' },
+      { color: 'yellow', label: labels.yellow || 'Amarillo', bar: 'bg-energy-500', chip: 'bg-energy-100 text-energy-800' },
+      { color: 'red', label: labels.red || 'Rojo', bar: 'bg-red-500', chip: 'bg-red-100 text-red-800' },
+    ]
+    return (
+      <div className="space-y-4">
+        {/* Resumen general (todas las preguntas sumadas) */}
+        {totalVotes > 0 && (
+          <div className="space-y-2 rounded-xl border bg-muted/30 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Resumen general</p>
+            {colorMeta.map((c) => {
+              const count = totals[c.color]
+              const p = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0
+              return (
+                <div key={c.color} className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="font-medium flex items-center gap-1.5">
+                      <span className={`inline-block h-2.5 w-2.5 rounded-full ${c.bar}`} aria-hidden />
+                      {c.label}
+                    </span>
+                    <span className="text-muted-foreground tabular-nums shrink-0">
+                      {p}% · {count}
+                    </span>
+                  </div>
+                  <Bar value={count} max={Math.max(1, totals.green, totals.yellow, totals.red)} color={c.bar} />
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Detalle por pregunta */}
+        {cfgItems.map((item, idx) => {
+          const r = data.items.find((i) => i.itemId === item.id)
+          const vTotal = r ? (r.green || 0) + (r.yellow || 0) + (r.red || 0) : 0
+          const overall =
+            r?.colorOverall === 'green' ? colorMeta[0]
+            : r?.colorOverall === 'yellow' ? colorMeta[1]
+            : r?.colorOverall === 'red' ? colorMeta[2]
+            : null
+          return (
+            <div key={item.id} className="space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-medium leading-snug">
+                  <span className="text-muted-foreground mr-1.5">{idx + 1}.</span>
+                  {item.text}
+                </p>
+                {overall && vTotal > 0 && (
+                  <span className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${overall.chip}`}>
+                    <span className={`h-2 w-2 rounded-full ${overall.bar}`} aria-hidden />
+                    {overall.label}
+                  </span>
+                )}
+              </div>
+              <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+                {vTotal > 0 && (
+                  <>
+                    <div className="bg-viva-500" style={{ width: `${((r?.green || 0) / vTotal) * 100}%` }} title={`${labels.green || 'Verde'}: ${r?.green || 0}`} />
+                    <div className="bg-energy-500" style={{ width: `${((r?.yellow || 0) / vTotal) * 100}%` }} title={`${labels.yellow || 'Amarillo'}: ${r?.yellow || 0}`} />
+                    <div className="bg-red-500" style={{ width: `${((r?.red || 0) / vTotal) * 100}%` }} title={`${labels.red || 'Rojo'}: ${r?.red || 0}`} />
+                  </>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-viva-500" /> {colorMeta[0].label}: {r?.green || 0}</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-energy-500" /> {colorMeta[1].label}: {r?.yellow || 0}</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-red-500" /> {colorMeta[2].label}: {r?.red || 0}</span>
+              </div>
+            </div>
+          )
+        })}
+        <p className="text-xs text-muted-foreground">
+          {data.total} {data.total === 1 ? 'participante respondió' : 'participantes respondieron'} ·{' '}
+          {config?.items?.length || 0} {(config?.items?.length || 0) === 1 ? 'pregunta' : 'preguntas'}
+        </p>
+      </div>
+    )
+  }
+
   // Modo 'items' (legacy): una barra por afirmación
   const items = config?.items || []
   return (

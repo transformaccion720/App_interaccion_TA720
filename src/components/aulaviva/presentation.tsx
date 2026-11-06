@@ -629,6 +629,102 @@ function BigSemaforo({ data, config, compact }: { data: SemaforoResults; config:
     )
   }
 
+  // Modo 'multi': N preguntas → resumen de colores + barra apilada por pregunta
+  if (data.mode === 'multi') {
+    const labels = config?.labels || {}
+    const cfgItems = config?.items || []
+    const totalVotes = data.items.reduce(
+      (s, it) => s + (it.green || 0) + (it.yellow || 0) + (it.red || 0), 0
+    )
+    const totals = data.items.reduce(
+      (acc, it) => ({
+        green: acc.green + (it.green || 0),
+        yellow: acc.yellow + (it.yellow || 0),
+        red: acc.red + (it.red || 0),
+      }),
+      { green: 0, yellow: 0, red: 0 }
+    )
+    const colorMeta: { color: SemaforoColor; label: string; dot: string; grad: string }[] = [
+      { color: 'green', label: labels.green || 'Verde', dot: 'bg-viva-400', grad: 'from-viva-600 to-viva-400' },
+      { color: 'yellow', label: labels.yellow || 'Amarillo', dot: 'bg-energy-400', grad: 'from-energy-600 to-energy-400' },
+      { color: 'red', label: labels.red || 'Rojo', dot: 'bg-red-400', grad: 'from-red-600 to-red-400' },
+    ]
+    return (
+      <div className="space-y-6 md:space-y-8">
+        {/* Resumen general: totales por color en las N preguntas */}
+        {totalVotes > 0 && (
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {colorMeta.map((c) => {
+              const count = totals[c.color]
+              return (
+                <span
+                  key={c.color}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-base md:text-lg font-bold ${
+                    c.color === 'green' ? 'border-viva-400/40 bg-viva-500/20 text-viva-300'
+                    : c.color === 'yellow' ? 'border-energy-400/40 bg-energy-500/20 text-energy-300'
+                    : 'border-red-400/40 bg-red-500/20 text-red-300'
+                  }`}
+                >
+                  <span className={`h-3 w-3 rounded-full ${c.dot}`} aria-hidden />
+                  {c.label} · {pct(count, totalVotes)}%
+                </span>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Detalle por pregunta */}
+        <div className="space-y-5 md:space-y-7">
+          {cfgItems.map((item, idx) => {
+            const r = data.items.find((i) => i.itemId === item.id)
+            const vTotal = r ? (r.green || 0) + (r.yellow || 0) + (r.red || 0) : 0
+            const segments = [
+              { n: r?.green || 0, grad: colorMeta[0].grad },
+              { n: r?.yellow || 0, grad: colorMeta[1].grad },
+              { n: r?.red || 0, grad: colorMeta[2].grad },
+            ]
+            return (
+              <div key={item.id} className="space-y-2">
+                <div className="flex items-baseline justify-between gap-4">
+                  <p className={`font-semibold leading-snug ${compact ? 'text-base md:text-lg' : 'text-lg md:text-2xl'}`}>
+                    <span className="text-slate-500 mr-2 tabular-nums">{idx + 1}.</span>
+                    {item.text}
+                  </p>
+                  {vTotal > 0 && (
+                    <span className="shrink-0 text-sm md:text-base text-slate-400 tabular-nums">
+                      {vTotal} {vTotal === 1 ? 'voto' : 'votos'}
+                    </span>
+                  )}
+                </div>
+                <div className="flex h-9 md:h-11 rounded-xl overflow-hidden bg-white/5">
+                  {vTotal > 0 &&
+                    segments.map((seg, si) => (
+                      <div
+                        key={si}
+                        className={`bg-gradient-to-b ${seg.grad} flex items-center justify-center`}
+                        style={{ width: `${(seg.n / vTotal) * 100}%` }}
+                        title={`${colorMeta[si].label}: ${seg.n}`}
+                      >
+                        {seg.n / vTotal > 0.12 && (
+                          <span className="text-base md:text-lg font-extrabold text-white">{seg.n}</span>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {data.total > 0 && (
+          <p className="text-center text-sm text-slate-400">
+            {data.total} {data.total === 1 ? 'participante respondió' : 'participantes respondieron'} · {cfgItems.length} {cfgItems.length === 1 ? 'pregunta' : 'preguntas'}
+          </p>
+        )}
+      </div>
+    )
+  }
+
   // Modo 'items' (legacy)
   const items = config?.items || []
   return (
