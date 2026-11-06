@@ -20,6 +20,7 @@ import {
   type QuestionResults,
   type QuestionType,
   type SemaforoAnswer,
+  type SemaforoColor,
   type SemaforoResults,
   type SemaforoVote,
   type WordCloudAnswer,
@@ -94,6 +95,19 @@ function aggregateSemaforo(
   answers: { payload: string }[]
 ): SemaforoResults {
   const config = parseConfig<SemaforoConfig>({ type: 'semaforo', config: configRaw })
+
+  // Modo 'single': una pregunta → cada participante elige verde/amarillo/rojo
+  if (config.mode === 'single') {
+    const counts: Record<SemaforoColor, number> = { green: 0, yellow: 0, red: 0 }
+    for (const a of answers) {
+      const payload = parsePayload<SemaforoAnswer>(a)
+      const color = payload.color
+      if (color === 'green' || color === 'yellow' || color === 'red') counts[color]++
+    }
+    return { total: answers.length, mode: 'single', items: [], counts }
+  }
+
+  // Modo 'items' (legacy): cada afirmación se evalúa válida/parcial/no válida
   const items = (config.items || []).map((item) => ({
     itemId: item.id,
     valid: 0,
@@ -118,7 +132,7 @@ function aggregateSemaforo(
     item.overall =
       max === item.valid ? 'valid' : max === item.partial ? 'partial' : 'invalid'
   }
-  return { total: answers.length, items }
+  return { total: answers.length, mode: 'items', items }
 }
 
 function aggregateWordCloud(

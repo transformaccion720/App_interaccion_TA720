@@ -14,6 +14,7 @@ import type {
   QuestionResults,
   SemaforoConfig,
   SemaforoResults,
+  SemaforoColor,
   WordCloudResults,
 } from '@/lib/types'
 import { WordCloud } from './word-cloud'
@@ -122,6 +123,53 @@ function SemaforoResultsView({
   config: SemaforoConfig
   compact?: boolean
 }) {
+  // Modo 'single': resumen ejecutivo por color (verde · amarillo · rojo)
+  if (data.mode === 'single') {
+    const counts = data.counts || { green: 0, yellow: 0, red: 0 }
+    const labels = config?.labels || {}
+    const rows: { color: SemaforoColor; label: string; count: number; bar: string; chip: string }[] = [
+      { color: 'green', label: labels.green || 'Verde', count: counts.green || 0, bar: 'bg-viva-500', chip: 'bg-viva-100 text-viva-800' },
+      { color: 'yellow', label: labels.yellow || 'Amarillo', count: counts.yellow || 0, bar: 'bg-energy-500', chip: 'bg-energy-100 text-energy-800' },
+      { color: 'red', label: labels.red || 'Rojo', count: counts.red || 0, bar: 'bg-red-500', chip: 'bg-red-100 text-red-800' },
+    ]
+    const max = Math.max(1, ...rows.map((r) => r.count))
+    const leader = [...rows].sort((a, b) => b.count - a.count)[0]
+    return (
+      <div className="space-y-4">
+        {data.total > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Color predominante</span>
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${leader.chip}`}>
+              <span className={`h-2 w-2 rounded-full ${leader.bar}`} aria-hidden />
+              {leader.label} · {Math.round((leader.count / data.total) * 100)}%
+            </span>
+          </div>
+        )}
+        {rows.map((r) => {
+          const p = data.total > 0 ? Math.round((r.count / data.total) * 100) : 0
+          return (
+            <div key={r.color} className="space-y-1">
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="font-medium flex items-center gap-1.5">
+                  <span className={`inline-block h-2.5 w-2.5 rounded-full ${r.bar}`} aria-hidden />
+                  {r.label}
+                </span>
+                <span className="text-muted-foreground tabular-nums shrink-0">
+                  {p}% · {r.count}
+                </span>
+              </div>
+              <Bar value={r.count} max={max} color={r.bar} />
+            </div>
+          )
+        })}
+        <p className="text-xs text-muted-foreground">
+          {data.total} {data.total === 1 ? 'participante respondió' : 'participantes respondieron'}
+        </p>
+      </div>
+    )
+  }
+
+  // Modo 'items' (legacy): una barra por afirmación
   const items = config?.items || []
   return (
     <div className="space-y-4">

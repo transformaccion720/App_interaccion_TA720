@@ -64,15 +64,26 @@ export async function GET(
           .map((oid) => options.find((o) => o.id === oid)?.text || oid)
           .join(' | ')
       } else if (type === 'semaforo') {
-        const p = payload as unknown as SemaforoAnswer
-        const items = ((config.items as { id: string; text: string }[]) || [])
-        const voteLabel: Record<string, string> = { valid: 'Válido', partial: 'Parcial', invalid: 'No válido' }
-        answerText = Object.entries(p.votes || {})
-          .map(([itemId, vote]) => {
-            const item = items.find((i) => i.id === itemId)
-            return `${item?.text || itemId}: ${voteLabel[vote] || vote}`
-          })
-          .join(' | ')
+        if (config.mode === 'single') {
+          // Modo pregunta única: el color elegido con su etiqueta
+          const p = payload as unknown as SemaforoAnswer
+          const labels: Record<string, string> = {
+            green: (config.labels as Record<string, string> | undefined)?.green || 'Verde',
+            yellow: (config.labels as Record<string, string> | undefined)?.yellow || 'Amarillo',
+            red: (config.labels as Record<string, string> | undefined)?.red || 'Rojo',
+          }
+          answerText = p.color ? labels[p.color] || p.color : ''
+        } else {
+          const p = payload as unknown as SemaforoAnswer
+          const items = ((config.items as { id: string; text: string }[]) || [])
+          const voteLabel: Record<string, string> = { valid: 'Válido', partial: 'Parcial', invalid: 'No válido' }
+          answerText = Object.entries(p.votes || {})
+            .map(([itemId, vote]) => {
+              const item = items.find((i) => i.id === itemId)
+              return `${item?.text || itemId}: ${voteLabel[vote] || vote}`
+            })
+            .join(' | ')
+        }
       } else if (type === 'word_cloud') {
         const p = payload as unknown as WordCloudAnswer
         answerText = (p.words || []).join(', ')

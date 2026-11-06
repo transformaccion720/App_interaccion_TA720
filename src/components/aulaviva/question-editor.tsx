@@ -45,7 +45,7 @@ import {
 
 export const TYPE_META: Record<QuestionType, { icon: typeof CheckSquare; desc: string }> = {
   multiple_choice: { icon: CheckSquare, desc: 'Opciones con selección única o múltiple' },
-  semaforo: { icon: TrafficCone, desc: 'Afirmaciones para evaluar como válidas, parciales o no válidas' },
+  semaforo: { icon: TrafficCone, desc: 'Una pregunta que la audiencia responde con tarjetas Verde · Amarillo · Rojo' },
   word_cloud: { icon: Cloud, desc: 'Lluvia de palabras clave en vivo' },
   decision_tree: { icon: Network, desc: 'Recorrido guiado por pasos hasta una conclusión' },
   open_text: { icon: MessageSquareText, desc: 'Respuestas escritas en texto libre' },
@@ -78,6 +78,8 @@ export function emptyDraft(type: QuestionType): EditorDraft {
       showCorrect: true,
       items: [],
       allowPartial: true,
+      mode: type === 'semaforo' ? 'single' : undefined,
+      labels: type === 'semaforo' ? {} : undefined,
       maxWords: 3,
       rootId: null,
       nodes: [],
@@ -153,7 +155,10 @@ export function QuestionEditor({
       const opts = d.config.options.filter((o) => o.text.trim())
       return opts.length >= 2
     }
-    if (d.type === 'semaforo') return d.config.items.filter((i) => i.text.trim()).length >= 1
+    if (d.type === 'semaforo') {
+      if (d.config.mode === 'items') return d.config.items.filter((i) => i.text.trim()).length >= 1
+      return true // modo single: basta el enunciado, las tarjetas son fijas
+    }
     if (d.type === 'word_cloud') return d.config.maxWords >= 1
     if (d.type === 'open_text') return d.config.maxLength >= 10
     if (d.type === 'decision_tree') {
@@ -375,6 +380,12 @@ function MultipleEditor({
 }
 
 // ------------------- Semáforo -------------------
+const SEMAFORO_CARD_COLORS: { color: 'green' | 'yellow' | 'red'; dot: string; soft: string }[] = [
+  { color: 'green', dot: 'bg-viva-500', soft: 'bg-viva-50 border-viva-300' },
+  { color: 'yellow', dot: 'bg-energy-500', soft: 'bg-energy-50 border-energy-300' },
+  { color: 'red', dot: 'bg-red-500', soft: 'bg-red-50 border-red-300' },
+]
+
 function SemaforoEditor({
   draft,
   setConfig,
@@ -382,54 +393,137 @@ function SemaforoEditor({
   draft: EditorDraft
   setConfig: (p: Partial<EditorDraft['config']>) => void
 }) {
+  const mode: 'single' | 'items' = draft.config.mode === 'items' ? 'items' : 'single'
+  const labels = draft.config.labels || {}
   const items = draft.config.items
+
+  function setLabel(color: 'green' | 'yellow' | 'red', text: string) {
+    setConfig({ labels: { ...labels, [color]: text } })
+  }
+
   function update(i: number, text: string) {
     setConfig({ items: items.map((it, j) => (i === j ? { ...it, text } : it)) })
   }
+
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Cada afirmación será evaluada por los alumnos con el semáforo: 🟢 Válida · 🟡 Parcial · 🔴 No válida.
-      </p>
-      {items.map((item, i) => (
-        <div key={item.id} className="flex items-center gap-2">
-          <span
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-              draft.config.allowPartial ? 'bg-energy-100 text-energy-700' : 'bg-viva-100 text-viva-700'
-            }`}
-          >
-            {i + 1}
-          </span>
-          <Input
-            value={item.text}
-            onChange={(e) => update(i, e.target.value)}
-            placeholder={`Afirmación ${i + 1}`}
-            maxLength={250}
-            className="h-10"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-            onClick={() => setConfig({ items: items.filter((_, j) => j !== i) })}
-            aria-label={`Eliminar afirmación ${i + 1}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ))}
-      {items.length < 10 && (
-        <Button type="button" variant="outline" size="sm" onClick={() => setConfig({ items: [...items, { id: uid(), text: '' }] })}>
-          <Plus className="h-4 w-4 mr-1" /> Añadir afirmación
-        </Button>
-      )}
-      <div className="flex items-center justify-between gap-3 pt-2">
-        <Label htmlFor="sf-partial" className="font-normal">
-          Incluir la opción amarilla «Parcial»
-        </Label>
-        <Switch id="sf-partial" checked={!!draft.config.allowPartial} onCheckedChange={(v) => setConfig({ allowPartial: v })} />
+    <div className="space-y-4">
+      {/* Selector de modo */}
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Modo del semáforo">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={mode === 'single'}
+          onClick={() => setConfig({ mode: 'single' })}
+          className={`rounded-xl border-2 p-3 text-left transition-colors ${
+            mode === 'single' ? 'border-brand-600 bg-brand-50' : 'border-border bg-card hover:border-brand-300'
+          }`}
+        >
+          <p className="text-sm font-semibold">Pregunta única</p>
+          <p className="text-xs text-muted-foreground leading-snug mt-0.5">
+            La audiencia responde con una tarjeta: 🟢 Verde · 🟡 Amarillo · 🔴 Rojo
+          </p>
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={mode === 'items'}
+          onClick={() => setConfig({ mode: 'items' })}
+          className={`rounded-xl border-2 p-3 text-left transition-colors ${
+            mode === 'items' ? 'border-brand-600 bg-brand-50' : 'border-border bg-card hover:border-brand-300'
+          }`}
+        >
+          <p className="text-sm font-semibold">Varias afirmaciones</p>
+          <p className="text-xs text-muted-foreground leading-snug mt-0.5">
+            Cada afirmación se evalúa por separado con el semáforo
+          </p>
+        </button>
       </div>
+
+      {mode === 'single' ? (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Escribe la consigna en el enunciado (p. ej. «Si fuera a pegar esta información en una herramienta
+            gratuita de IA, ¿qué color le asigna?»). Los participantes verán tres tarjetas de color.
+          </p>
+
+          {/* Vista previa de las tarjetas */}
+          <div className="grid grid-cols-3 gap-2">
+            {SEMAFORO_CARD_COLORS.map(({ color, dot, soft }) => (
+              <div key={color} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 ${soft}`}>
+                <span className={`h-3.5 w-3.5 shrink-0 rounded-full ${dot}`} aria-hidden />
+                <span className="truncate text-sm font-semibold">{labels[color] || (color === 'green' ? 'Verde' : color === 'yellow' ? 'Amarillo' : 'Rojo')}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Etiquetas opcionales */}
+          <div className="space-y-2 rounded-xl border bg-muted/30 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Texto de cada tarjeta (opcional)
+            </p>
+            {SEMAFORO_CARD_COLORS.map(({ color, dot }) => (
+              <div key={color} className="flex items-center gap-2">
+                <span className={`h-3 w-3 shrink-0 rounded-full ${dot}`} aria-hidden />
+                <Input
+                  value={labels[color] || ''}
+                  onChange={(e) => setLabel(color, e.target.value)}
+                  placeholder={color === 'green' ? 'Verde (p. ej. Seguro de usar)' : color === 'yellow' ? 'Amarillo (p. ej. Con precaución)' : 'Rojo (p. ej. No es adecuado)'}
+                  maxLength={60}
+                  className="h-9"
+                />
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              Si lo dejas vacío se usan los nombres Verde, Amarillo y Rojo.
+            </p>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Cada afirmación será evaluada por los alumnos con el semáforo: 🟢 Válida · 🟡 Parcial · 🔴 No válida.
+          </p>
+          {items.map((item, i) => (
+            <div key={item.id} className="flex items-center gap-2">
+              <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                  draft.config.allowPartial ? 'bg-energy-100 text-energy-700' : 'bg-viva-100 text-viva-700'
+                }`}
+              >
+                {i + 1}
+              </span>
+              <Input
+                value={item.text}
+                onChange={(e) => update(i, e.target.value)}
+                placeholder={`Afirmación ${i + 1}`}
+                maxLength={250}
+                className="h-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                onClick={() => setConfig({ items: items.filter((_, j) => j !== i) })}
+                aria-label={`Eliminar afirmación ${i + 1}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          {items.length < 10 && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setConfig({ items: [...items, { id: uid(), text: '' }] })}>
+              <Plus className="h-4 w-4 mr-1" /> Añadir afirmación
+            </Button>
+          )}
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <Label htmlFor="sf-partial" className="font-normal">
+              Incluir la opción amarilla «Parcial»
+            </Label>
+            <Switch id="sf-partial" checked={!!draft.config.allowPartial} onCheckedChange={(v) => setConfig({ allowPartial: v })} />
+          </div>
+        </>
+      )}
     </div>
   )
 }

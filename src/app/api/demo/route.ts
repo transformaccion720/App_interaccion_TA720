@@ -52,16 +52,17 @@ export async function POST() {
       },
       {
         order: 1,
-        title: 'Semáforo: evalúa estas afirmaciones sobre el trabajo en equipo',
-        description: 'Marca cada afirmación como Válida, Parcial o No válida.',
+        title: 'Si fuera a pegar esta información en una herramienta gratuita de IA, ¿qué color le asigna?',
+        description: 'Elige el color que mejor describe tu evaluación.',
         type: 'semaforo',
         config: JSON.stringify({
-          items: [
-            { id: id('i'), text: 'Dividir tareas según las fortalezas de cada integrante mejora los resultados' },
-            { id: id('i'), text: 'Un buen equipo nunca tiene desacuerdos' },
-            { id: id('i'), text: 'La comunicación constante evita retrabajos' },
-          ],
-          allowPartial: true,
+          mode: 'single',
+          items: [],
+          labels: {
+            green: 'Verde — Puedo pegarla',
+            yellow: 'Amarillo — Con precaución',
+            red: 'Rojo — No debo pegarla',
+          },
         }),
       },
       {

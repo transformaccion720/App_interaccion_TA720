@@ -21,6 +21,7 @@ import {
   type OpenTextConfig,
   type QuestionPublic,
   type SemaforoAnswer,
+  type SemaforoColor,
   type SemaforoConfig,
   type SemaforoVote,
   type WordCloudAnswer,
@@ -172,6 +173,37 @@ const VOTE_BUTTONS: { vote: SemaforoVote; label: string; icon: typeof CheckCircl
   },
 ]
 
+// Tarjetas de color del modo 'single': verde · amarillo · rojo
+const COLOR_CARDS: {
+  color: SemaforoColor
+  fallback: string
+  dot: string
+  active: string
+  hover: string
+}[] = [
+  {
+    color: 'green',
+    fallback: 'Verde',
+    dot: 'bg-viva-500',
+    active: 'border-viva-600 bg-viva-50 text-viva-900 ring-2 ring-viva-600/30',
+    hover: 'hover:border-viva-400 hover:bg-viva-50/50',
+  },
+  {
+    color: 'yellow',
+    fallback: 'Amarillo',
+    dot: 'bg-energy-500',
+    active: 'border-energy-600 bg-energy-50 text-energy-900 ring-2 ring-energy-600/30',
+    hover: 'hover:border-energy-500 hover:bg-energy-50/50',
+  },
+  {
+    color: 'red',
+    fallback: 'Rojo',
+    dot: 'bg-red-500',
+    active: 'border-red-600 bg-red-50 text-red-900 ring-2 ring-red-600/30',
+    hover: 'hover:border-red-400 hover:bg-red-50/50',
+  },
+]
+
 function SemaforoForm({
   config,
   myAnswer,
@@ -183,6 +215,48 @@ function SemaforoForm({
   onSubmit: (payload: Record<string, unknown>) => void
   submitting: boolean
 }) {
+  // Modo 'single': una consigna → tres tarjetas de color
+  if (config?.mode === 'single') {
+    const [color, setColor] = useState<SemaforoColor | null>(myAnswer?.color || null)
+    const labels = config.labels || {}
+    return (
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!color) return
+          onSubmit({ color } satisfies SemaforoAnswer)
+        }}
+      >
+        <div className="grid grid-cols-3 gap-2.5" role="radiogroup" aria-label="Elige un color">
+          {COLOR_CARDS.map((c) => {
+            const active = color === c.color
+            return (
+              <button
+                key={c.color}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setColor(c.color)}
+                className={`flex min-h-24 flex-col items-center justify-center gap-2.5 rounded-xl border-2 px-2 py-4 transition-colors ${
+                  active ? c.active : `border-border bg-card ${c.hover}`
+                }`}
+              >
+                <span className={`h-8 w-8 rounded-full ${c.dot} ${active ? 'ring-4 ring-white/60' : ''}`} aria-hidden />
+                <span className="text-sm font-bold leading-tight text-center">
+                  {labels[c.color] || c.fallback}
+                </span>
+                {active && <CheckCircle2 className="h-4 w-4" aria-hidden />}
+              </button>
+            )
+          })}
+        </div>
+        <SubmitButton disabled={!color} submitting={submitting} label={color ? 'Enviar respuesta' : 'Elige un color'} />
+      </form>
+    )
+  }
+
+  // Modo 'items' (legacy): cada afirmación se evalúa una a una
   const [votes, setVotes] = useState<Record<string, SemaforoVote>>(myAnswer?.votes || {})
 
   const items = config?.items || []

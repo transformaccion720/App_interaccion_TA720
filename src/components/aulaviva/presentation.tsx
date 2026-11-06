@@ -25,6 +25,7 @@ import type {
   QuestionAdmin,
   SemaforoConfig,
   SemaforoResults,
+  SemaforoColor,
   WordCloudResults,
 } from '@/lib/types'
 import { QUESTION_TYPE_LABELS } from '@/lib/types'
@@ -545,6 +546,90 @@ function BigMultiple({
 }
 
 function BigSemaforo({ data, config, compact }: { data: SemaforoResults; config: SemaforoConfig; compact: boolean }) {
+  // Modo 'single': tres barras de dashboard con la paleta del semáforo
+  if (data.mode === 'single') {
+    const counts = data.counts || { green: 0, yellow: 0, red: 0 }
+    const labels = config?.labels || {}
+    const rows: {
+      color: SemaforoColor
+      label: string
+      count: number
+      dot: string
+      grad: string
+    }[] = [
+      { color: 'green', label: labels.green || 'Verde', count: counts.green || 0, dot: 'bg-viva-400', grad: 'from-viva-600 to-viva-400' },
+      { color: 'yellow', label: labels.yellow || 'Amarillo', count: counts.yellow || 0, dot: 'bg-energy-400', grad: 'from-energy-600 to-energy-400' },
+      { color: 'red', label: labels.red || 'Rojo', count: counts.red || 0, dot: 'bg-red-400', grad: 'from-red-600 to-red-400' },
+    ]
+    const max = Math.max(1, ...rows.map((r) => r.count))
+    const leader = data.total > 0 ? [...rows].sort((a, b) => b.count - a.count)[0] : null
+    return (
+      <div className="space-y-6 md:space-y-8">
+        {leader && (
+          <div className="flex items-center justify-center gap-3">
+            <span className="h-px w-12 bg-white/15" aria-hidden />
+            <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Color predominante</span>
+            <span className="h-px w-12 bg-white/15" aria-hidden />
+          </div>
+        )}
+        {leader && (
+          <div className="flex items-center justify-center gap-3 -mt-3">
+            <span className={`inline-flex items-center gap-2.5 rounded-full border px-5 py-2 text-xl md:text-2xl font-extrabold ${
+              leader.color === 'green' ? 'border-viva-400/40 bg-viva-500/20 text-viva-300'
+              : leader.color === 'yellow' ? 'border-energy-400/40 bg-energy-500/20 text-energy-300'
+              : 'border-red-400/40 bg-red-500/20 text-red-300'
+            }`}>
+              <span className={`h-3.5 w-3.5 rounded-full ${leader.dot}`} aria-hidden />
+              {leader.label} · {pct(leader.count, data.total)}%
+            </span>
+          </div>
+        )}
+        <div className={compact ? 'space-y-4' : 'space-y-7'}>
+          {rows.map((r) => {
+            const p = pct(r.count, data.total)
+            return (
+              <div key={r.color} className="flex items-center gap-4">
+                <span className="flex h-12 w-12 md:h-14 md:w-14 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
+                  <span className={`h-6 w-6 md:h-7 md:w-7 rounded-full ${r.dot}`} aria-hidden />
+                </span>
+                <span className={`shrink-0 font-bold leading-snug ${compact ? 'w-24 md:w-44 text-base md:text-xl' : 'w-32 md:w-64 text-lg md:text-2xl'}`}>
+                  {r.label}
+                </span>
+                <div
+                  className="relative flex-1 h-10 md:h-14 rounded-xl bg-white/[0.04] overflow-hidden"
+                  style={{
+                    backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px)',
+                    backgroundSize: '25% 100%',
+                  }}
+                >
+                  <div
+                    className={`absolute inset-y-0 left-0 rounded-r-xl bg-gradient-to-r ${r.grad}`}
+                    style={{ width: `${Math.max(r.count > 0 ? 3 : 0, (r.count / max) * 100)}%` }}
+                  />
+                </div>
+                <span className="w-20 md:w-28 shrink-0 text-right leading-none">
+                  <span className="text-2xl md:text-4xl font-extrabold tabular-nums">
+                    {p}
+                    <span className="text-base md:text-lg text-slate-400 font-bold">%</span>
+                  </span>
+                  <span className="block mt-1 text-xs md:text-sm text-slate-400 tabular-nums">
+                    {r.count} {r.count === 1 ? 'voto' : 'votos'}
+                  </span>
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        {data.total > 0 && (
+          <p className="text-center text-sm text-slate-400">
+            {data.total} {data.total === 1 ? 'participante respondió' : 'participantes respondieron'}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  // Modo 'items' (legacy)
   const items = config?.items || []
   return (
     <div className={compact ? 'space-y-4' : 'space-y-7'}>

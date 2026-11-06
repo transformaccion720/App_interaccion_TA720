@@ -48,10 +48,13 @@ def answer(q, idx, part):
         opts = cfg['options']
         payload = {'optionIds': [opts[idx % len(opts)]['id']]}
     elif t == 'semaforo':
-        votes = {}
-        for j, item in enumerate(cfg['items']):
-            votes[item['id']] = ['valid', 'partial', 'invalid', 'valid'][(idx + j) % 4]
-        payload = {'votes': votes}
+        if cfg.get('mode') == 'single':
+            payload = {'color': ['green', 'yellow', 'red', 'green'][idx % 4]}
+        else:
+            votes = {}
+            for j, item in enumerate(cfg['items']):
+                votes[item['id']] = ['valid', 'partial', 'invalid', 'valid'][(idx + j) % 4]
+            payload = {'votes': votes}
     elif t == 'word_cloud':
         payload = {'words': [['equipo', 'practica'], ['aprendizaje'], ['diversion', 'equipo'], ['retos']][idx % 4]}
     elif t == 'decision_tree':

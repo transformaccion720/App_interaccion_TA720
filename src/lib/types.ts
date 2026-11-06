@@ -43,14 +43,19 @@ export interface MultipleChoiceConfig {
   showCorrect?: boolean // resaltar la(s) correcta(s) en resultados
 }
 
+export type SemaforoMode = 'single' | 'items'
+export type SemaforoColor = 'green' | 'yellow' | 'red'
+
 export interface SemaforoItem {
   id: string
   text: string
 }
 
 export interface SemaforoConfig {
-  items: SemaforoItem[]
-  allowPartial?: boolean // permitir el punto amarillo "Parcial"
+  mode?: SemaforoMode // 'single' (por defecto): una pregunta → tarjetas verde/amarillo/rojo
+  items: SemaforoItem[] // (modo items) afirmaciones evaluadas una a una
+  allowPartial?: boolean // (modo items) permitir el punto amarillo "Parcial"
+  labels?: Partial<Record<SemaforoColor, string>> // (modo single) etiquetas de las tarjetas
 }
 
 export type SemaforoVote = 'valid' | 'partial' | 'invalid'
@@ -114,7 +119,8 @@ export interface MultipleChoiceAnswer {
 }
 
 export interface SemaforoAnswer {
-  votes: Record<string, SemaforoVote> // itemId → voto
+  votes?: Record<string, SemaforoVote> // (modo items) itemId → voto
+  color?: SemaforoColor // (modo single) color elegido
 }
 
 export interface WordCloudAnswer {
@@ -186,7 +192,9 @@ export interface SemaforoItemResults {
 
 export interface SemaforoResults {
   total: number
-  items: SemaforoItemResults[]
+  mode: SemaforoMode
+  items: SemaforoItemResults[] // (modo items)
+  counts?: Record<SemaforoColor, number> // (modo single) votos por color
 }
 
 export interface WordCloudResults {
