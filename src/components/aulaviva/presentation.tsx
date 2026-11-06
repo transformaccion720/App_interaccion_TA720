@@ -545,93 +545,148 @@ function BigMultiple({
   return <DashboardHBars rows={rows} total={data.total} compact={compact} />
 }
 
+// ------------------ Semáforo: tarjetas dashboard (single y multi) ------------------
+
+type SemaforoColorMeta = {
+  color: SemaforoColor
+  label: string
+  dot: string
+  text: string
+  grad: string
+  card: string
+  chip: string
+}
+
+// Metadatos visuales de los 3 colores del semáforo (etiquetas personalizables)
+function semaforoColorMeta(labels: Partial<Record<SemaforoColor, string>>): SemaforoColorMeta[] {
+  return [
+    {
+      color: 'green',
+      label: labels.green || 'Verde',
+      dot: 'bg-viva-400',
+      text: 'text-viva-300',
+      grad: 'from-viva-500 to-viva-400',
+      card: 'border-viva-400/30 bg-gradient-to-b from-viva-500/[0.14] to-viva-500/[0.03]',
+      chip: 'border-viva-400/40 bg-viva-500/20 text-viva-300',
+    },
+    {
+      color: 'yellow',
+      label: labels.yellow || 'Amarillo',
+      dot: 'bg-energy-400',
+      text: 'text-energy-300',
+      grad: 'from-energy-500 to-energy-400',
+      card: 'border-energy-400/30 bg-gradient-to-b from-energy-500/[0.14] to-energy-500/[0.03]',
+      chip: 'border-energy-400/40 bg-energy-500/20 text-energy-300',
+    },
+    {
+      color: 'red',
+      label: labels.red || 'Rojo',
+      dot: 'bg-red-400',
+      text: 'text-red-300',
+      grad: 'from-red-500 to-red-400',
+      card: 'border-red-400/30 bg-gradient-to-b from-red-500/[0.14] to-red-500/[0.03]',
+      chip: 'border-red-400/40 bg-red-500/20 text-red-300',
+    },
+  ]
+}
+
+// Tarjeta dashboard de un color: etiqueta, porcentaje grande, votos y barra.
+// Las 3 tarjetas se ven a la vez, en línea, para cada pregunta del semáforo.
+function SemaforoCard({
+  meta,
+  count,
+  total,
+  isLeader,
+  big,
+}: {
+  meta: SemaforoColorMeta
+  count: number
+  total: number
+  isLeader: boolean
+  big?: boolean // modo single: tarjetas grandes a pantalla completa
+}) {
+  const p = pct(count, total)
+  return (
+    <div
+      className={`relative rounded-xl border p-3 md:p-4 ${meta.card} ${
+        isLeader ? 'ring-1 ring-inset ring-white/30' : ''
+      }`}
+    >
+      <div className="flex items-center gap-1.5">
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${meta.dot}`} aria-hidden />
+        <span
+          className={`min-w-0 flex-1 truncate font-semibold uppercase tracking-wide text-slate-300 ${
+            big ? 'text-xs md:text-sm' : 'text-[11px] md:text-xs'
+          }`}
+        >
+          {meta.label}
+        </span>
+        {isLeader && (
+          <span
+            className={`shrink-0 rounded-full border px-1.5 py-px font-bold uppercase tracking-widest text-[9px] md:text-[10px] ${meta.chip}`}
+          >
+            Líder
+          </span>
+        )}
+      </div>
+      <p
+        className={`mt-2 font-extrabold leading-none tabular-nums ${meta.text} ${
+          big ? 'text-4xl md:text-6xl' : 'text-2xl md:text-3xl'
+        }`}
+      >
+        {p}
+        <span className={`font-bold text-slate-400 ${big ? 'text-lg md:text-2xl' : 'text-sm md:text-base'}`}>
+          %
+        </span>
+      </p>
+      <p className={`mt-1.5 text-slate-400 tabular-nums ${big ? 'text-xs md:text-sm' : 'text-[11px] md:text-xs'}`}>
+        {count} {count === 1 ? 'voto' : 'votos'}
+      </p>
+      <div className={`mt-2.5 overflow-hidden rounded-full bg-white/10 ${big ? 'h-2 md:h-2.5' : 'h-1.5'}`}>
+        <div className={`h-full rounded-full bg-gradient-to-r ${meta.grad}`} style={{ width: `${p}%` }} />
+      </div>
+    </div>
+  )
+}
+
 function BigSemaforo({ data, config, compact }: { data: SemaforoResults; config: SemaforoConfig; compact: boolean }) {
-  // Modo 'single': tres barras de dashboard con la paleta del semáforo
+  // Modo 'single': una pregunta → las 3 tarjetas dashboard grandes, a la vez
   if (data.mode === 'single') {
     const counts = data.counts || { green: 0, yellow: 0, red: 0 }
-    const labels = config?.labels || {}
-    const rows: {
-      color: SemaforoColor
-      label: string
-      count: number
-      dot: string
-      grad: string
-    }[] = [
-      { color: 'green', label: labels.green || 'Verde', count: counts.green || 0, dot: 'bg-viva-400', grad: 'from-viva-600 to-viva-400' },
-      { color: 'yellow', label: labels.yellow || 'Amarillo', count: counts.yellow || 0, dot: 'bg-energy-400', grad: 'from-energy-600 to-energy-400' },
-      { color: 'red', label: labels.red || 'Rojo', count: counts.red || 0, dot: 'bg-red-400', grad: 'from-red-600 to-red-400' },
-    ]
-    const max = Math.max(1, ...rows.map((r) => r.count))
-    const leader = data.total > 0 ? [...rows].sort((a, b) => b.count - a.count)[0] : null
+    const meta = semaforoColorMeta(config?.labels || {})
+    const per = meta.map((m) => ({ meta: m, n: counts[m.color] || 0 }))
+    const vTotal = data.total
+    const lead = vTotal > 0 ? Math.max(...per.map((x) => x.n)) : 0
+    const leader = vTotal > 0 ? [...per].sort((a, b) => b.n - a.n)[0] : null
     return (
       <div className="space-y-6 md:space-y-8">
-        {leader && (
-          <div className="flex items-center justify-center gap-3">
-            <span className="h-px w-12 bg-white/15" aria-hidden />
-            <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Color predominante</span>
-            <span className="h-px w-12 bg-white/15" aria-hidden />
-          </div>
-        )}
-        {leader && (
-          <div className="flex items-center justify-center gap-3 -mt-3">
-            <span className={`inline-flex items-center gap-2.5 rounded-full border px-5 py-2 text-xl md:text-2xl font-extrabold ${
-              leader.color === 'green' ? 'border-viva-400/40 bg-viva-500/20 text-viva-300'
-              : leader.color === 'yellow' ? 'border-energy-400/40 bg-energy-500/20 text-energy-300'
-              : 'border-red-400/40 bg-red-500/20 text-red-300'
-            }`}>
-              <span className={`h-3.5 w-3.5 rounded-full ${leader.dot}`} aria-hidden />
-              {leader.label} · {pct(leader.count, data.total)}%
+        {leader && leader.n > 0 && (
+          <div className="flex items-center justify-center">
+            <span
+              className={`inline-flex items-center gap-2.5 rounded-full border px-5 py-2 text-xl md:text-2xl font-extrabold ${leader.meta.chip}`}
+            >
+              <span className={`h-3.5 w-3.5 rounded-full ${leader.meta.dot}`} aria-hidden />
+              {leader.meta.label} · {pct(leader.n, vTotal)}%
             </span>
           </div>
         )}
-        <div className={compact ? 'space-y-4' : 'space-y-7'}>
-          {rows.map((r) => {
-            const p = pct(r.count, data.total)
-            return (
-              <div key={r.color} className="flex items-center gap-4">
-                <span className="flex h-12 w-12 md:h-14 md:w-14 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
-                  <span className={`h-6 w-6 md:h-7 md:w-7 rounded-full ${r.dot}`} aria-hidden />
-                </span>
-                <span className={`shrink-0 font-bold leading-snug ${compact ? 'w-24 md:w-44 text-base md:text-xl' : 'w-32 md:w-64 text-lg md:text-2xl'}`}>
-                  {r.label}
-                </span>
-                <div
-                  className="relative flex-1 h-10 md:h-14 rounded-xl bg-white/[0.04] overflow-hidden"
-                  style={{
-                    backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px)',
-                    backgroundSize: '25% 100%',
-                  }}
-                >
-                  <div
-                    className={`absolute inset-y-0 left-0 rounded-r-xl bg-gradient-to-r ${r.grad}`}
-                    style={{ width: `${Math.max(r.count > 0 ? 3 : 0, (r.count / max) * 100)}%` }}
-                  />
-                </div>
-                <span className="w-20 md:w-28 shrink-0 text-right leading-none">
-                  <span className="text-2xl md:text-4xl font-extrabold tabular-nums">
-                    {p}
-                    <span className="text-base md:text-lg text-slate-400 font-bold">%</span>
-                  </span>
-                  <span className="block mt-1 text-xs md:text-sm text-slate-400 tabular-nums">
-                    {r.count} {r.count === 1 ? 'voto' : 'votos'}
-                  </span>
-                </span>
-              </div>
-            )
-          })}
+        <div className="grid grid-cols-3 gap-3 md:gap-5">
+          {per.map(({ meta: m, n }) => (
+            <SemaforoCard key={m.color} meta={m} count={n} total={vTotal} isLeader={lead > 0 && n === lead} big />
+          ))}
         </div>
-        {data.total > 0 && (
+        {vTotal > 0 && (
           <p className="text-center text-sm text-slate-400">
-            {data.total} {data.total === 1 ? 'participante respondió' : 'participantes respondieron'}
+            {vTotal} {vTotal === 1 ? 'participante respondió' : 'participantes respondieron'}
           </p>
         )}
       </div>
     )
   }
 
-  // Modo 'multi': N preguntas → resumen de colores + barra apilada por pregunta
+  // Modo 'multi': N preguntas → por pregunta, las 3 tarjetas dashboard en línea
   if (data.mode === 'multi') {
-    const labels = config?.labels || {}
+    const meta = semaforoColorMeta(config?.labels || {})
     const cfgItems = config?.items || []
     const totalVotes = data.items.reduce(
       (s, it) => s + (it.green || 0) + (it.yellow || 0) + (it.red || 0), 0
@@ -644,81 +699,64 @@ function BigSemaforo({ data, config, compact }: { data: SemaforoResults; config:
       }),
       { green: 0, yellow: 0, red: 0 }
     )
-    const colorMeta: { color: SemaforoColor; label: string; dot: string; grad: string }[] = [
-      { color: 'green', label: labels.green || 'Verde', dot: 'bg-viva-400', grad: 'from-viva-600 to-viva-400' },
-      { color: 'yellow', label: labels.yellow || 'Amarillo', dot: 'bg-energy-400', grad: 'from-energy-600 to-energy-400' },
-      { color: 'red', label: labels.red || 'Rojo', dot: 'bg-red-400', grad: 'from-red-600 to-red-400' },
-    ]
     return (
-      <div className="space-y-6 md:space-y-8">
+      <div className="space-y-5 md:space-y-6">
         {/* Resumen general: totales por color en las N preguntas */}
         {totalVotes > 0 && (
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {colorMeta.map((c) => {
-              const count = totals[c.color]
-              return (
-                <span
-                  key={c.color}
-                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-base md:text-lg font-bold ${
-                    c.color === 'green' ? 'border-viva-400/40 bg-viva-500/20 text-viva-300'
-                    : c.color === 'yellow' ? 'border-energy-400/40 bg-energy-500/20 text-energy-300'
-                    : 'border-red-400/40 bg-red-500/20 text-red-300'
-                  }`}
-                >
-                  <span className={`h-3 w-3 rounded-full ${c.dot}`} aria-hidden />
-                  {c.label} · {pct(count, totalVotes)}%
-                </span>
-              )
-            })}
+          <div className="flex flex-wrap items-center justify-center gap-2.5">
+            {meta.map((m) => (
+              <span
+                key={m.color}
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm md:text-base font-bold ${m.chip}`}
+              >
+                <span className={`h-2.5 w-2.5 rounded-full ${m.dot}`} aria-hidden />
+                {m.label} · {pct(totals[m.color], totalVotes)}%
+              </span>
+            ))}
           </div>
         )}
 
-        {/* Detalle por pregunta */}
-        <div className="space-y-5 md:space-y-7">
+        {/* Por pregunta: las 3 tarjetas del dashboard a la vez, en línea */}
+        <div className="space-y-4 md:space-y-5">
           {cfgItems.map((item, idx) => {
             const r = data.items.find((i) => i.itemId === item.id)
-            const vTotal = r ? (r.green || 0) + (r.yellow || 0) + (r.red || 0) : 0
-            const segments = [
-              { n: r?.green || 0, grad: colorMeta[0].grad },
-              { n: r?.yellow || 0, grad: colorMeta[1].grad },
-              { n: r?.red || 0, grad: colorMeta[2].grad },
+            const per = [
+              { meta: meta[0], n: r?.green || 0 },
+              { meta: meta[1], n: r?.yellow || 0 },
+              { meta: meta[2], n: r?.red || 0 },
             ]
+            const vTotal = per.reduce((s, x) => s + x.n, 0)
+            const lead = vTotal > 0 ? Math.max(...per.map((x) => x.n)) : 0
             return (
-              <div key={item.id} className="space-y-2">
-                <div className="flex items-baseline justify-between gap-4">
+              <section
+                key={item.id}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-5"
+              >
+                <div className="mb-3 flex items-baseline justify-between gap-4 md:mb-4">
                   <p className={`font-semibold leading-snug ${compact ? 'text-base md:text-lg' : 'text-lg md:text-2xl'}`}>
-                    <span className="text-slate-500 mr-2 tabular-nums">{idx + 1}.</span>
+                    <span className="mr-2 tabular-nums text-slate-500">{idx + 1}.</span>
                     {item.text}
                   </p>
                   {vTotal > 0 && (
-                    <span className="shrink-0 text-sm md:text-base text-slate-400 tabular-nums">
+                    <span className="shrink-0 text-xs text-slate-400 tabular-nums md:text-sm">
                       {vTotal} {vTotal === 1 ? 'voto' : 'votos'}
                     </span>
                   )}
                 </div>
-                <div className="flex h-9 md:h-11 rounded-xl overflow-hidden bg-white/5">
-                  {vTotal > 0 &&
-                    segments.map((seg, si) => (
-                      <div
-                        key={si}
-                        className={`bg-gradient-to-b ${seg.grad} flex items-center justify-center`}
-                        style={{ width: `${(seg.n / vTotal) * 100}%` }}
-                        title={`${colorMeta[si].label}: ${seg.n}`}
-                      >
-                        {seg.n / vTotal > 0.12 && (
-                          <span className="text-base md:text-lg font-extrabold text-white">{seg.n}</span>
-                        )}
-                      </div>
-                    ))}
+                <div className="grid grid-cols-3 gap-2.5 md:gap-4">
+                  {per.map(({ meta: m, n }) => (
+                    <SemaforoCard key={m.color} meta={m} count={n} total={vTotal} isLeader={lead > 0 && n === lead} />
+                  ))}
                 </div>
-              </div>
+              </section>
             )
           })}
         </div>
 
         {data.total > 0 && (
           <p className="text-center text-sm text-slate-400">
-            {data.total} {data.total === 1 ? 'participante respondió' : 'participantes respondieron'} · {cfgItems.length} {cfgItems.length === 1 ? 'pregunta' : 'preguntas'}
+            {data.total} {data.total === 1 ? 'participante respondió' : 'participantes respondieron'} · {cfgItems.length}{' '}
+            {cfgItems.length === 1 ? 'pregunta' : 'preguntas'}
           </p>
         )}
       </div>
