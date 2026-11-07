@@ -93,12 +93,34 @@ GitHub CLI (`gh auth login`) o SSH.
 ### Con el CLI de Neon (opcional, automatiza el paso 2)
 
 ```bash
-npx neon@latest init -y --org-id <ORG_ID> --project-id <PROJECT_ID> --branch production --services postgres
-NEON_API_KEY=<tu-api-key> npx neon@latest env pull --file .env.local   # trae las cadenas
-NEON_API_KEY=<tu-api-key> npx neon@latest deploy                       # aprovisiona
+npm i -g neon@latest                  # CLI v9.x
+export NEON_API_KEY=<tu-api-key>      # crea el key en neon.tech → Account → API keys
+neon init -y --org-id <ORG_ID> --project-id <PROJECT_ID> --branch production --services postgres
+neon deploy                           # aplica neon.ts (política de ramas); sin cambios si ya coincide
 ```
 
-Crea el API key en neon.tech → **Account → API keys** (puedes revocarla al terminar).
+`neon init` vincula el proyecto (archivo `.neon`, gitignored), preserva `neon.ts` y vuelca
+las variables de Neon en `.env`: `DATABASE_URL` (**pooled**) y `DATABASE_URL_UNPOOLED`
+(directa). Completa `.env` con:
+
+```env
+DIRECT_URL=<el mismo valor de DATABASE_URL_UNPOOLED>
+AUTH_SECRET=<genera uno nuevo: openssl rand -hex 32>
+```
+
+Aplica el esquema y crea la cuenta admin:
+
+```bash
+npx prisma generate --schema prisma/schema.postgres.prisma
+npx prisma db push --schema prisma/schema.postgres.prisma
+bun scripts/seed-teacher.ts
+```
+
+> **Entornos que ya exportan `DATABASE_URL`** (sandboxes, CI): el proceso gana sobre
+> `.env`. Carga primero `source scripts/load-neon-env.sh` (lee `.env` y fuerza las
+> variables de Neon). Para volver a desarrollo local con SQLite usa `.env.sqlite`.
+
+El API key se puede revocar al terminar desde **Account → API keys**.
 
 ## 5. Crear la cuenta del administrador (obligatorio)
 

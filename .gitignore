@@ -55,3 +55,6 @@ server.log
 # base de datos local
 /db/
 .neon
+
+# salidas de herramientas locales
+tool-results/
