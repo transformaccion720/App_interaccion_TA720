@@ -137,10 +137,30 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  // Diagnóstico visible en pantalla: si el servidor rechaza el inicio de sesión
+  // por configuración del deploy (BD, variables, cliente Prisma), el usuario ve
+  // la causa exacta sin necesidad de abrir las herramientas de desarrollador.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [diag, setDiag] = useState<string | null>(null)
+  const [diagBusy, setDiagBusy] = useState(false)
+
+  async function runDiag() {
+    setDiagBusy(true)
+    try {
+      const res = await fetch('/api/health')
+      const data = await res.json()
+      setDiag(JSON.stringify(data, null, 2))
+    } catch {
+      setDiag('No se pudo consultar /api/health — el deploy puede estar caído o ser una versión anterior a la actual.')
+    } finally {
+      setDiagBusy(false)
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
+    setErrorMsg(null)
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -149,7 +169,14 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
       })
       const data = await res.json()
       if (!res.ok) {
-        toast({ title: data.error || 'No se pudo iniciar sesión', variant: 'destructive' })
+        const extra = [data.detalle, data.pista].filter(Boolean).join(' — ')
+        const msg = `${data.error || 'No se pudo iniciar sesión'}${extra ? `: ${extra}` : ''}`
+        setErrorMsg(msg)
+        toast({
+          title: data.error || 'No se pudo iniciar sesión',
+          description: data.pista || data.detalle,
+          variant: 'destructive',
+        })
         return
       }
       // Respaldo de sesión en localStorage: si el navegador bloquea las
@@ -159,6 +186,9 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
       toast({ title: `¡Hola de nuevo, ${data.teacher.name}!` })
       onLoggedIn(data.teacher)
     } catch {
+      setErrorMsg(
+        'Error de conexión: el navegador no pudo alcanzar /api/auth/login. Revisa tu conexión o que la URL del sitio sea la del deploy actual.',
+      )
       toast({ title: 'Error de conexión', variant: 'destructive' })
     } finally {
       setBusy(false)
@@ -262,6 +292,26 @@ function LoginView({ onLoggedIn }: { onLoggedIn: (t: TeacherInfo) => void }) {
                     </>
                   )}
                 </Button>
+
+                {errorMsg && (
+                  <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    <p className="font-semibold">No se pudo iniciar sesión</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words leading-relaxed">{errorMsg}</p>
+                    <button
+                      type="button"
+                      onClick={runDiag}
+                      disabled={diagBusy}
+                      className="mt-2 text-xs font-medium underline underline-offset-2 hover:opacity-80"
+                    >
+                      {diagBusy ? 'Consultando diagnóstico…' : 'Ver diagnóstico técnico'}
+                    </button>
+                    {diag && (
+                      <pre className="mt-2 max-h-56 overflow-auto rounded-md border bg-background/80 p-2.5 text-left text-[11px] leading-relaxed text-muted-foreground">
+                        {diag}
+                      </pre>
+                    )}
+                  </div>
+                )}
               </form>
             </CardContent>
           </Card>

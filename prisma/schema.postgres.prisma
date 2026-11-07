@@ -8,7 +8,10 @@
 // El resto del código no cambia: los modelos son idénticos a la versión SQLite.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Vercel compila y ejecuta en Linux con OpenSSL 3.x: el target "native"
+  // cubre builds locales y "rhel-openssl-3.0.x" el runtime de Vercel.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

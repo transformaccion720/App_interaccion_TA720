@@ -10,7 +10,12 @@ import { Prisma } from '@prisma/client'
 export async function GET() {
   let provider = 'desconocido'
   try {
-    provider = Prisma.dmmf?.datamodel?.datasources?.[0]?.provider || 'desconocido'
+    // El DMMF expone el proveedor del cliente generado; el tipo público de
+    // Prisma no lo declara, por eso el cast defensivo.
+    const dmmf = (Prisma as unknown as {
+      dmmf?: { datamodel?: { datasources?: { provider?: string }[] } }
+    }).dmmf
+    provider = dmmf?.datamodel?.datasources?.[0]?.provider || 'desconocido'
   } catch {
     // sin acceso al DMMF, seguimos con el valor por defecto
   }
@@ -24,10 +29,24 @@ export async function GET() {
     error = err instanceof Error ? err.message.slice(0, 300) : 'error desconocido'
   }
 
+  // Chequeo de esquema: si las tablas no están aplicadas, login fallará aunque
+  // la conexión funcione. Contamos docentes (tabla mínima del sistema).
+  let esquemaOk = false
+  let docentes: number | null = null
+  let esquemaError: string | undefined
+  if (dbOk) {
+    try {
+      docentes = await db.teacher.count()
+      esquemaOk = true
+    } catch (err) {
+      esquemaError = err instanceof Error ? err.message.slice(0, 200) : 'error desconocido'
+    }
+  }
+
   const url = (process.env.DATABASE_URL || '').trim()
   return Response.json(
     {
-      ok: dbOk,
+      ok: dbOk && esquemaOk,
       db: {
         ok: dbOk,
         provider,
@@ -35,9 +54,10 @@ export async function GET() {
         urlLongitud: url.length,
         error,
       },
+      esquema: { ok: esquemaOk, docentes, error: esquemaError },
       auth: { secretConfigurado: Boolean(process.env.AUTH_SECRET) },
       tiempo: new Date().toISOString(),
     },
-    { status: dbOk ? 200 : 503 },
+    { status: dbOk && esquemaOk ? 200 : 503 },
   )
 }

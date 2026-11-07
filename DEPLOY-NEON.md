@@ -156,6 +156,30 @@ npx tsx scripts/seed-teacher.ts
 2. Tu panel está en `https://tu-app.vercel.app/admin`; guárdalo con su **código de administrador** (lo ves en «Ajustes») para reabrirlo desde cualquier equipo.
 3. Límite por sesión: 100 alumnos por defecto (configurable hasta 500 al crear la sesión).
 
+## 7. Si el inicio de sesión sigue fallando en Vercel
+
+La pantalla de login ahora **muestra la causa real** del error (recuadro rojo bajo el
+formulario, con un enlace «Ver diagnóstico técnico» que consulta `/api/health`).
+Los 3 fallos típicos y cómo se ven:
+
+1. **«La variable DATABASE_URL no está configurada en este entorno»** — las variables
+   se añadieron solo para *Development*: Vercel separa Production / Preview / Development.
+   Marca **las tres casillas** (o al menos Production) para cada variable y vuelve a desplegar.
+2. **«La cadena de conexión no es válida… pegó con comillas»** — el valor se copió con las
+   comillas del archivo de texto. En Vercel el valor se pega **sin comillas** y sin espacios.
+3. **«No se pudo conectar a la base de datos»** — la URL no es la *pooled* de Neon
+   (`...-pooler...`) o el branch de Neon está suspendido (entra al panel de Neon y actívalo).
+
+Checklist mínimo tras cambiar variables o código:
+
+1. Abre `https://TU-APP.vercel.app/api/health` → debe responder
+   `"ok": true` con `urlEsPostgres: true` y `esquema.ok: true`.
+2. Si `/api/health` da 404: el deploy está desactualizado o falló el build →
+   revisa en Vercel → *Deployments* que el último deploy sea **Ready** y con el
+   commit más reciente; si no, *Redeploy*.
+3. Los cambios de variables de entorno **exigen un nuevo deploy**: después de
+   editarlas, *Deployments → Redeploy → Redeploy* (así se inyectan en las funciones).
+
 ## Notas técnicas
 
 - **Tiempo real:** la plataforma usa sondeo inteligente cada 2 s (participante y panel docente).
