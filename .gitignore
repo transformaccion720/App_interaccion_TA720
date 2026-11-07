@@ -54,3 +54,4 @@ server.log
 /skills/
 # base de datos local
 /db/
+.neon
