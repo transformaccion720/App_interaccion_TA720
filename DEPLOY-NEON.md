@@ -4,6 +4,13 @@ Guía paso a paso para llevar la plataforma a producción con base de datos **Ne
 Todo el código ya está listo: no hay nada específico de SQLite en la aplicación (los campos
 JSON se guardan como texto, portables entre motores).
 
+**Repositorio:** <https://github.com/transformaccion720/App_interaccion_TA720>
+
+> **Historial ya depurado:** antes del primer push se reescribió el historial con
+> `git filter-repo` para eliminar `.env`, la base SQLite local (`db/custom.db`) y
+> archivos de trabajo (`tool-results/`). El repositorio no contiene secretos.
+> `.env*` está en `.gitignore`: las credenciales viven solo en Vercel.
+
 ---
 
 ## 1. Crear la base de datos en Neon
@@ -45,41 +52,53 @@ bunx prisma db push
 
 ## 3. Subir a GitHub
 
+El remoto ya está definido en el proyecto. Para publicar los cambios:
+
 ```bash
-git init
-git add .
-git commit -m "AulaViva — plataforma de participación en clase"
-git branch -M main
-git remote add origin https://github.com/TU_USUARIO/aulaviva.git
+git remote add origin https://github.com/transformaccion720/App_interaccion_TA720.git  # si no existe
 git push -u origin main
 ```
 
-> **Importante:** no subas el archivo `.env` (ya está excluido en `.gitignore`).
-> Las credenciales se configuran en Vercel.
+El push por HTTPS pide usuario + **Personal Access Token** (fine-grained, scope
+`Contents: read/write` sobre ese repo). Alternativa sin token desde tu equipo:
+GitHub CLI (`gh auth login`) o SSH.
+
+> **Importante:** nunca subas el archivo `.env` (excluido en `.gitignore`).
+> Las credenciales se configuran solo en Vercel.
 
 ## 4. Desplegar en Vercel
 
-1. Entra a [vercel.com](https://vercel.com) → **Add New → Project** → importa el repositorio.
-2. Vercel detecta Next.js automáticamente. Antes de desplegar, abre **Environment Variables** y agrega:
+1. Entra a [vercel.com](https://vercel.com) → **Add New → Project** → importa
+   `transformaccion720/App_interaccion_TA720`.
+2. Antes de desplegar, abre **Environment Variables** y agrega:
 
    | Nombre | Valor |
    | --- | --- |
-   | `DATABASE_URL` | cadena **pooled** de Neon |
+   | `DATABASE_URL` | cadena **pooled** de Neon (termina en `-pooler…`) |
    | `DIRECT_URL` | cadena **directa** de Neon |
+   | `AUTH_SECRET` | secreto nuevo para firmar sesiones: `openssl rand -hex 32` |
 
-3. Pulsa **Deploy**.
+3. En **Settings → Build & Output Settings**, sobrescribe el **Build Command** con:
 
-### Configuración de Prisma en el build
+   ```bash
+   cp prisma/schema.postgres.prisma prisma/schema.prisma && npx prisma generate && next build
+   ```
 
-Vercel ejecuta `npm install` (o `bun install`), que a su vez corre `prisma generate`
-mediante el hook `postinstall` si está definido. Añádelo en `package.json` si no existe:
+   Esto es **obligatorio**: el `schema.prisma` del repo usa SQLite para desarrollo
+   local; en el build de Vercel hay que generar el cliente Prisma contra el esquema
+   PostgreSQL (`prisma/schema.postgres.prisma`).
 
-```json
-"scripts": {
-  "postinstall": "prisma generate",
-  "build": "prisma generate && next build"
-}
+4. Pulsa **Deploy**.
+
+### Con el CLI de Neon (opcional, automatiza el paso 2)
+
+```bash
+npx neon@latest init -y --org-id <ORG_ID> --project-id <PROJECT_ID> --branch production --services postgres
+NEON_API_KEY=<tu-api-key> npx neon@latest env pull --file .env.local   # trae las cadenas
+NEON_API_KEY=<tu-api-key> npx neon@latest deploy                       # aprovisiona
 ```
+
+Crea el API key en neon.tech → **Account → API keys** (puedes revocarla al terminar).
 
 ## 5. Crear la cuenta del administrador (obligatorio)
 
@@ -88,7 +107,9 @@ docente o moderador desde el panel (pestaña **Usuarios**). Tras aplicar el esqu
 crea la cuenta inicial de administrador:
 
 ```bash
-node scripts/seed-teacher.js   # o: bun scripts/seed-teacher.ts
+# apuntando DATABASE_URL / DIRECT_URL a Neon y con el cliente generado
+# desde prisma/schema.postgres.prisma:
+npx tsx scripts/seed-teacher.ts
 # Crea: docente@aulaviva.app / AulaViva2026 (rol ADMIN)
 ```
 
