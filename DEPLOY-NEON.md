@@ -84,11 +84,21 @@ GitHub CLI (`gh auth login`) o SSH.
    cp prisma/schema.postgres.prisma prisma/schema.prisma && npx prisma generate && next build
    ```
 
-   Esto es **obligatorio**: el `schema.prisma` del repo usa SQLite para desarrollo
+   > **Desde la versión actual el repo ya se auto-configura en Vercel:** `postinstall`
+   > genera el cliente Prisma PostgreSQL y existe un script `vercel-build` con los
+   > mismos pasos. El override del dashboard es opcional (recomendado por claridad).
+
+   Antes era obligatorio porque el `schema.prisma` del repo usa SQLite para desarrollo
    local; en el build de Vercel hay que generar el cliente Prisma contra el esquema
    PostgreSQL (`prisma/schema.postgres.prisma`).
 
 4. Pulsa **Deploy**.
+
+**Verificación después del deploy:** abre `https://tu-app.vercel.app/api/health`.
+Debe responder `{"ok":true,"db":{"ok":true,...}}`. Si `db.ok` es `false`, el campo
+`error` indica la causa (p. ej. cliente SQLite vs PostgreSQL, o `DATABASE_URL`
+malformado: `urlEsPostgres:false`). El login puede tardar unos segundos más en la
+primera llamada porque Neon despierta el cómputo si estaba suspendido.
 
 ### Con el CLI de Neon (opcional, automatiza el paso 2)
 
