@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     } else if (/malformed|invalid|cannot parse|failed to parse|error parsing|couldn'?t parse/.test(msg)) {
       pista = 'La cadena de conexión no es válida. Casi siempre ocurre si el valor se pegó con comillas: en Vercel pega el valor SIN comillas y sin espacios extra.'
     } else if (/can'?t reach database|p1001|etimedout|econnrefused|connection terminated|too many connections/.test(msg)) {
-      pista = 'No se pudo conectar a la base de datos. Verifica DATABASE_URL (host pooled de Neon) y que el branch production esté activo.'
+      pista = 'No se pudo conectar a la base de datos. Verifica DATABASE_URL: debe incluir usuario, contraseña, host -pooler con .c-2, /neondb y ?sslmode=require. El diagnóstico (/api/health → db.tienePassword / db.nombreBD) muestra si el valor quedó incompleto.'
     } else if (/does not exist|p2021|p2022|table|relation/.test(msg)) {
       pista = 'La base de datos no tiene las tablas. Aplica el esquema: npx prisma db push usando la DIRECT_URL.'
     } else if (/sqlite|file:/.test(msg)) {

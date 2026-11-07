@@ -44,14 +44,35 @@ export async function GET() {
   }
 
   const url = (process.env.DATABASE_URL || '').trim()
+  // Anatomía de la URL SIN secretos: detecta al instante un valor mal pegado
+  // (sin contraseña, sin nombre de BD, host antiguo, comillas incluidas...).
+  const urlInfo: Record<string, unknown> = {
+    urlEsPostgres: /^postgres(ql)?:\/\//.test(url),
+    urlLongitud: url.length,
+  }
+  try {
+    const u = new URL(url)
+    if (/^postgres(ql)?:$/.test(u.protocol)) {
+      urlInfo.usuario = u.username || '(vacío)'
+      urlInfo.tienePassword = u.password.length > 0
+      urlInfo.passwordLongitud = u.password.length
+      urlInfo.host = u.hostname
+      urlInfo.nombreBD = u.pathname.slice(1) || '(vacío)'
+      urlInfo.parametros = u.search || '(ninguno)'
+    } else {
+      urlInfo.esquemaDetectado = u.protocol
+    }
+  } catch {
+    urlInfo.urlNoParseable = true
+  }
+
   return Response.json(
     {
       ok: dbOk && esquemaOk,
       db: {
         ok: dbOk,
         provider,
-        urlEsPostgres: /^postgres(ql)?:\/\//.test(url),
-        urlLongitud: url.length,
+        ...urlInfo,
         error,
       },
       esquema: { ok: esquemaOk, docentes, error: esquemaError },
