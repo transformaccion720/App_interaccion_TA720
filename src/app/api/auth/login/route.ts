@@ -8,13 +8,20 @@ import {
 } from '@/lib/auth'
 
 export async function POST(req: Request) {
+  // Cuerpo: parseo separado para no confundir un JSON roto con un error interno
+  let body: { email?: unknown; password?: unknown }
   try {
-    const body = await req.json()
-    const email = String(body.email || '').trim().toLowerCase()
-    const password = String(body.password || '')
+    body = await req.json()
+  } catch {
+    return jsonError('Ingresa tu correo y contraseña', 400)
+  }
 
-    if (!email || !password) return jsonError('Ingresa tu correo y contraseña')
+  const email = String(body?.email || '').trim().toLowerCase()
+  const password = String(body?.password || '')
 
+  if (!email || !password) return jsonError('Ingresa tu correo y contraseña', 400)
+
+  try {
     const teacher = await db.teacher.findUnique({ where: { email } })
     if (!teacher || !verifyPassword(password, teacher.passwordHash)) {
       return jsonError('Correo o contraseña incorrectos', 401)
@@ -41,6 +48,13 @@ export async function POST(req: Request) {
     return new Response(res.body, { status: 200, headers })
   } catch (err) {
     console.error('[login] error:', err)
-    return jsonError('Solicitud inválida', 400)
+    // Diagnóstico visible (sin secretos): la causa real va en la respuesta para
+    // poder depurar un deploy (p. ej. "Environment variable not found: DATABASE_URL",
+    // cliente SQLite vs PostgreSQL, o BD inalcanzable).
+    const detalle = err instanceof Error ? err.message.slice(0, 220) : 'desconocido'
+    return Response.json(
+      { error: 'Solicitud inválida', causa: 'configuracion-servidor', detalle },
+      { status: 400 },
+    )
   }
 }
