@@ -2,7 +2,7 @@
 # El formato del archivo está optimizado para copiar cada valor COMPLETO en Vercel.
 import re, pathlib
 
-env = pathlib.Path('/home/z/my-project/.env').read_text()
+env = pathlib.Path('/home/z/my-project/.env.production').read_text()
 
 def val(k: str) -> str:
     m = re.search(rf'^{k}=(.*)$', env, re.M)

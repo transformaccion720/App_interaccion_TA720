@@ -1,104 +1,87 @@
-// AulaViva — Esquema para PostgreSQL (Neon / producción)
-//
-// INSTRUCCIONES: cuando despliegues en Vercel + Neon, reemplaza el contenido
-// de prisma/schema.prisma por ESTE archivo (o cambia solo el datasource),
-// configura DATABASE_URL y ejecuta:
-//    npx prisma db push
-//
-// El resto del código no cambia: los modelos son idénticos a la versión SQLite.
-
 generator client {
   provider      = "prisma-client-js"
-  // Vercel compila y ejecuta en Linux con OpenSSL 3.x: el target "native"
-  // cubre builds locales y "rhel-openssl-3.0.x" el runtime de Vercel.
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")      // cadena pooled (pooled connection de Neon)
-  directUrl = env("DIRECT_URL")        // cadena directa de Neon (para db push / migraciones)
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// DOCENTE / ADMINISTRADOR — inicia sesión con correo y contraseña.
-// Los participantes NO necesitan cuenta: entran con el código o QR de la sesión.
 model Teacher {
   id           String    @id @default(cuid())
   email        String    @unique
   name         String
-  passwordHash String // scrypt: "salt:hash" en hexadecimal
-  role         String    @default("DOCENTE") // ADMIN | DOCENTE | MODERADOR
+  passwordHash String
+  role         String    @default("DOCENTE")
   createdAt    DateTime  @default(now())
   sessions     Session[]
 
   @@index([email])
 }
 
-// SESIÓN / PRESENTACIÓN (creada por el docente)
 model Session {
-  id              String       @id @default(cuid())
+  id              String        @id @default(cuid())
   title           String
   description     String?
-  joinCode        String       @unique // código de 6 caracteres para los asistentes
-  adminCode       String       @unique // código de 8 caracteres para el panel docente
-  maxParticipants Int          @default(100)
-  status          String       @default("draft") // draft | live | closed
-  teacherId       String? // docente propietario (opcional: sesiones demo sin dueño)
-  teacher         Teacher?     @relation(fields: [teacherId], references: [id], onDelete: SetNull)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  questions       Question[]
+  joinCode        String        @unique
+  adminCode       String        @unique
+  maxParticipants Int           @default(100)
+  status          String        @default("draft")
+  teacherId       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
   participants    Participant[]
+  questions       Question[]
+  teacher         Teacher?      @relation(fields: [teacherId], references: [id])
 
   @@index([joinCode])
   @@index([teacherId])
 }
 
-// PREGUNTA (6 tipos: multiple_choice | semaforo | word_cloud | decision_tree | open_text | diagnostico)
 model Question {
   id           String    @id @default(cuid())
   sessionId    String
-  session      Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   order        Int       @default(0)
   title        String
   description  String?
-  imageUrl     String? // data URL (base64) o URL externa — adjunto opcional
+  imageUrl     String?
   type         String
-  config       String    @default("{}") // JSON según el tipo de pregunta
-  state        String    @default("pending") // pending | open | revealed | closed
+  config       String    @default("{}")
+  state        String    @default("pending")
   openedAt     DateTime?
-  timerSeconds Int? // cierre automático opcional
+  timerSeconds Int?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   answers      Answer[]
+  session      Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, order])
 }
 
-// ASISTENTE (alumno conectado a la sesión)
 model Participant {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   sessionId  String
-  session    Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   name       String
-  token      String    @unique // identificador privado guardado en el navegador
-  lastSeenAt DateTime  @default(now())
-  createdAt  DateTime  @default(now())
+  token      String   @unique
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
   answers    Answer[]
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
 }
 
-// RESPUESTA (una por participante y pregunta; se actualiza si cambia su voto)
 model Answer {
   id            String      @id @default(cuid())
   questionId    String
-  question      Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
   participantId String
-  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  payload       String      @default("{}") // JSON según el tipo de pregunta
+  payload       String      @default("{}")
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  question      Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, participantId])
   @@index([questionId])

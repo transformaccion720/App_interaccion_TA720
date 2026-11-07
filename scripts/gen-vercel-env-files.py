@@ -3,7 +3,7 @@
 # Los valores se leen de .env y NUNCA se imprimen en el chat.
 import re, pathlib
 
-env = pathlib.Path('/home/z/my-project/.env').read_text()
+env = pathlib.Path('/home/z/my-project/.env.production').read_text()
 out_dir = pathlib.Path('/home/z/my-project/download/vercel')
 out_dir.mkdir(parents=True, exist_ok=True)
 
