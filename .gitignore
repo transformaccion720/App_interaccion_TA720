@@ -58,3 +58,7 @@ server.log
 
 # salidas de herramientas locales
 tool-results/
+
+# entregables y archivos del usuario (no versionar)
+download/
+/upload/
