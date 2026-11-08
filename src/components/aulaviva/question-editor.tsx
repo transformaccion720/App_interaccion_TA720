@@ -17,6 +17,7 @@ import {
   type DiagInputType,
   type DiagPrompt,
   type DiagnosticoConfig,
+  type MCQuestion,
   type MultipleChoiceConfig,
   type OpenTextConfig,
   type QuestionAdmin,
@@ -76,6 +77,7 @@ export function emptyDraft(type: QuestionType): EditorDraft {
       options: [],
       multipleSelect: false,
       showCorrect: true,
+      questions: [],
       items: [],
       allowPartial: true,
       mode: type === 'semaforo' ? 'single' : undefined,
@@ -152,6 +154,15 @@ export function QuestionEditor({
   function canSave(): boolean {
     if (!d.title.trim()) return false
     if (d.type === 'multiple_choice') {
+      const subs = d.config.questions || []
+      if (subs.length) {
+        // Modo «varias preguntas»: cada sub-pregunta necesita enunciado y ≥ 2 opciones
+        return subs.every(
+          (q) =>
+            q.text.trim() &&
+            q.options.filter((o) => o.text.trim()).length >= 2,
+        )
+      }
       const opts = d.config.options.filter((o) => o.text.trim())
       return opts.length >= 2
     }
@@ -186,12 +197,20 @@ export function QuestionEditor({
     <div className="space-y-5">
       {/* Campos comunes */}
       <div className="space-y-1.5">
-        <Label htmlFor="q-title">Enunciado de la pregunta *</Label>
+        <Label htmlFor="q-title">
+          {d.type === 'multiple_choice' && (d.config.questions || []).length > 0
+            ? 'Título del bloque *'
+            : 'Enunciado de la pregunta *'}
+        </Label>
         <Input
           id="q-title"
           value={d.title}
           onChange={(e) => set({ title: e.target.value })}
-          placeholder="Escribe aquí tu pregunta…"
+          placeholder={
+            d.type === 'multiple_choice' && (d.config.questions || []).length > 0
+              ? 'Ej.: Quiz de repaso — Clase 4'
+              : 'Escribe aquí tu pregunta…'
+          }
           maxLength={300}
           className="h-11"
         />
@@ -294,21 +313,22 @@ export function QuestionEditor({
 }
 
 // ------------------- Opción múltiple -------------------
-function MultipleEditor({
-  draft,
-  setConfig,
+// Lista de opciones reutilizable (una pregunta simple o una sub-pregunta)
+function OptionRows({
+  opts,
+  onChange,
+  prefix,
 }: {
-  draft: EditorDraft
-  setConfig: (p: Partial<EditorDraft['config']>) => void
+  opts: { id: string; text: string; correct?: boolean }[]
+  onChange: (next: { id: string; text: string; correct?: boolean }[]) => void
+  prefix: string
 }) {
-  const options = draft.config.options
   function update(i: number, patch: Partial<{ text: string; correct: boolean }>) {
-    const next = options.map((o, j) => (i === j ? { ...o, ...patch } : o))
-    setConfig({ options: next })
+    onChange(opts.map((o, j) => (i === j ? { ...o, ...patch } : o)))
   }
   return (
-    <div className="space-y-3">
-      {options.map((opt, i) => (
+    <div className="space-y-2">
+      {opts.map((opt, i) => (
         <div key={opt.id} className="flex items-center gap-2">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-bold text-muted-foreground">
             {String.fromCharCode(65 + i)}
@@ -319,6 +339,7 @@ function MultipleEditor({
             placeholder={`Opción ${String.fromCharCode(65 + i)}`}
             maxLength={150}
             className="h-10"
+            aria-label={`${prefix} · opción ${String.fromCharCode(65 + i)}`}
           />
           <button
             type="button"
@@ -336,43 +357,163 @@ function MultipleEditor({
             variant="ghost"
             size="icon"
             className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-            onClick={() => setConfig({ options: options.filter((_, j) => j !== i) })}
+            onClick={() => onChange(opts.filter((_, j) => j !== i))}
             aria-label={`Eliminar opción ${String.fromCharCode(65 + i)}`}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       ))}
-      {options.length < 8 && (
+      {opts.length < 8 && (
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setConfig({ options: [...options, { id: uid(), text: '' }] })}
+          onClick={() => onChange([...opts, { id: uid(), text: '' }])}
         >
           <Plus className="h-4 w-4 mr-1" /> Añadir opción
         </Button>
       )}
-      <div className="flex flex-col gap-3 pt-2">
-        <div className="flex items-center justify-between gap-3">
-          <Label htmlFor="mc-multi" className="font-normal">
-            Permitir seleccionar varias opciones
-          </Label>
-          <Switch
-            id="mc-multi"
-            checked={!!draft.config.multipleSelect}
-            onCheckedChange={(v) => setConfig({ multipleSelect: v })}
-          />
+    </div>
+  )
+}
+
+function newMcSub(): MCQuestion {
+  return { id: uid(), text: '', options: [{ id: uid(), text: '' }, { id: uid(), text: '' }] }
+}
+
+// Dos modos en el mismo bloque:
+//  · Una pregunta: el enunciado del bloque + una lista de opciones (compatibilidad).
+//  · Varias preguntas (config.questions): un cuestionario con N preguntas,
+//    cada una con sus propias opciones.
+function MultipleEditor({
+  draft,
+  setConfig,
+}: {
+  draft: EditorDraft
+  setConfig: (p: Partial<EditorDraft['config']>) => void
+}) {
+  const config = draft.config
+  const subs = config.questions || []
+  const multi = subs.length > 0
+
+  function setSubs(next: MCQuestion[]) {
+    setConfig({ questions: next })
+  }
+
+  function updateSub(qi: number, patch: Partial<MCQuestion>) {
+    setSubs(subs.map((q, j) => (qi === j ? { ...q, ...patch } : q)))
+  }
+
+  function toggleMode(on: boolean) {
+    if (on) {
+      // Al activar: 2 sub-preguntas vacías listas para editar
+      setSubs(subs.length ? subs : [newMcSub(), newMcSub()])
+    } else {
+      // Al desactivar: vuelve al modo de una pregunta (sus opciones se conservan)
+      setConfig({ questions: undefined })
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Modo una pregunta: lista de opciones del bloque */}
+      {!multi && (
+        <OptionRows
+          opts={config.options}
+          onChange={(next) => setConfig({ options: next })}
+          prefix="Opción múltiple"
+        />
+      )}
+
+      {/* Modo varias preguntas: una tarjeta por sub-pregunta */}
+      {multi && (
+        <div className="space-y-3">
+          {subs.map((q, qi) => (
+            <fieldset key={q.id} className="space-y-2.5 rounded-xl border p-3.5 bg-card">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Pregunta {qi + 1}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => setSubs(subs.filter((_, j) => j !== qi))}
+                  aria-label={`Eliminar pregunta ${qi + 1}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <Input
+                value={q.text}
+                onChange={(e) => updateSub(qi, { text: e.target.value })}
+                placeholder={`Enunciado de la pregunta ${qi + 1}…`}
+                maxLength={300}
+                className="h-10"
+                aria-label={`Enunciado de la pregunta ${qi + 1}`}
+              />
+              <OptionRows
+                opts={q.options}
+                onChange={(next) => updateSub(qi, { options: next })}
+                prefix={`Pregunta ${qi + 1}`}
+              />
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <Label htmlFor={`mc-sub-multi-${q.id}`} className="text-xs font-normal text-muted-foreground">
+                  Permitir seleccionar varias opciones
+                </Label>
+                <Switch
+                  id={`mc-sub-multi-${q.id}`}
+                  checked={!!q.multipleSelect}
+                  onCheckedChange={(v) => updateSub(qi, { multipleSelect: v })}
+                />
+              </div>
+            </fieldset>
+          ))}
+          {subs.length < 10 && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setSubs([...subs, newMcSub()])}>
+              <Plus className="h-4 w-4 mr-1" /> Añadir pregunta
+            </Button>
+          )}
         </div>
+      )}
+
+      <div className="flex flex-col gap-3 pt-2">
+        {!multi && (
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="mc-multi" className="font-normal">
+              Permitir seleccionar varias opciones
+            </Label>
+            <Switch
+              id="mc-multi"
+              checked={!!config.multipleSelect}
+              onCheckedChange={(v) => setConfig({ multipleSelect: v })}
+            />
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor="mc-correct" className="font-normal">
             Resaltar la(s) respuesta(s) correcta(s) en los resultados
           </Label>
           <Switch
             id="mc-correct"
-            checked={!!draft.config.showCorrect}
+            checked={!!config.showCorrect}
             onCheckedChange={(v) => setConfig({ showCorrect: v })}
           />
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t pt-3">
+          <div>
+            <Label htmlFor="mc-varias" className="font-normal">
+              Varias preguntas en este bloque
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {multi
+                ? 'Cuestionario activo: los participantes responden todas las preguntas juntas.'
+                : 'Crea un cuestionario: cada pregunta con sus propias opciones.'}
+            </p>
+          </div>
+          <Switch id="mc-varias" checked={multi} onCheckedChange={toggleMode} />
         </div>
       </div>
     </div>

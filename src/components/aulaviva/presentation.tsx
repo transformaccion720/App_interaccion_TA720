@@ -534,6 +534,38 @@ function BigMultiple({
   config: MultipleChoiceConfig
   compact: boolean
 }) {
+  // Modo «varias preguntas»: una sección de barras por sub-pregunta
+  const subs = config?.questions || []
+  const perQ = data.questions || []
+  if (subs.length && perQ.length) {
+    return (
+      <div className={compact ? 'space-y-5' : 'space-y-8'}>
+        {subs.map((q, qi) => {
+          const res = perQ.find((r) => r.questionId === q.id)
+          const counts = res?.counts || {}
+          const rows: BarRow[] = (q.options || [])
+            .filter((o) => o.text.trim())
+            .map((opt, i) => ({
+              id: opt.id,
+              label: opt.text,
+              count: counts[opt.id] || 0,
+              letter: String.fromCharCode(65 + i),
+              correct: !!opt.correct,
+            }))
+          return (
+            <div key={q.id} className="space-y-3">
+              <p className={`font-bold leading-snug text-white ${compact ? 'text-base md:text-lg' : 'text-xl md:text-2xl'}`}>
+                <span className="text-slate-400 mr-2">{qi + 1}.</span>
+                {q.text}
+              </p>
+              <DashboardHBars rows={rows} total={data.total} compact={compact} />
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   const options = config?.options || []
   const rows: BarRow[] = options.map((opt, i) => ({
     id: opt.id,

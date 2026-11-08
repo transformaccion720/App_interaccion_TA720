@@ -59,10 +59,22 @@ export async function GET(
       const type = q.type as QuestionType
       if (type === 'multiple_choice') {
         const p = payload as unknown as MultipleChoiceAnswer
-        const options = ((config.options as { id: string; text: string }[]) || [])
-        answerText = (p.optionIds || [])
-          .map((oid) => options.find((o) => o.id === oid)?.text || oid)
-          .join(' | ')
+        const subs = ((config.questions as { id: string; text: string; options: { id: string; text: string }[] }[]) || [])
+        if (subs.length && p.byQuestion) {
+          // Modo varias preguntas: respuesta por cada sub-pregunta del bloque
+          answerText = Object.entries(p.byQuestion)
+            .map(([qid, oids]) => {
+              const sub = subs.find((s) => s.id === qid)
+              const texts = (oids || []).map((oid) => sub?.options?.find((o) => o.id === oid)?.text || oid)
+              return `${sub?.text || qid}: ${texts.join(' | ')}`
+            })
+            .join(' | ')
+        } else {
+          const options = ((config.options as { id: string; text: string }[]) || [])
+          answerText = (p.optionIds || [])
+            .map((oid) => options.find((o) => o.id === oid)?.text || oid)
+            .join(' | ')
+        }
       } else if (type === 'semaforo') {
         if (config.mode === 'single') {
           // Modo pregunta única: el color elegido con su etiqueta

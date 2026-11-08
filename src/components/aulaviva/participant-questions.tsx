@@ -15,6 +15,7 @@ import {
   type DiagnosticoAnswer,
   type DiagnosticoConfig,
   type DiagPrompt,
+  type MCQuestion,
   type MultipleChoiceAnswer,
   type MultipleChoiceConfig,
   type OpenTextAnswer,
@@ -91,9 +92,11 @@ function MultipleChoiceForm({
   submitting: boolean
 }) {
   const [selected, setSelected] = useState<string[]>(myAnswer?.optionIds || [])
+  const [byQ, setByQ] = useState<Record<string, string[]>>(myAnswer?.byQuestion || {})
 
   const options = config?.options || []
   const multiple = !!config?.multipleSelect
+  const subs = config?.questions || []
 
   function toggle(optionId: string) {
     if (multiple) {
@@ -103,6 +106,90 @@ function MultipleChoiceForm({
     }
   }
 
+  function toggleSub(q: MCQuestion, optionId: string) {
+    setByQ((prev) => {
+      const current = prev[q.id] || []
+      const next = q.multipleSelect
+        ? current.includes(optionId)
+          ? current.filter((x) => x !== optionId)
+          : [...current, optionId]
+        : [optionId]
+      return { ...prev, [q.id]: next }
+    })
+  }
+
+  // —— Modo «varias preguntas»: un cuestionario con envío único ——
+  if (subs.length) {
+    const answeredCount = subs.filter((q) => (byQ[q.id]?.length || 0) > 0).length
+    const allAnswered = answeredCount === subs.length
+    return (
+      <form
+        className="space-y-5"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!allAnswered) {
+            toast({ title: 'Faltan preguntas por responder', description: 'Elige una opción en cada pregunta.', variant: 'destructive' })
+            return
+          }
+          onSubmit({ byQuestion: byQ } satisfies MultipleChoiceAnswer)
+        }}
+      >
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <ClipboardList className="h-3.5 w-3.5" />
+          {answeredCount} de {subs.length} preguntas respondidas
+        </div>
+
+        {subs.map((q, qi) => (
+          <fieldset key={q.id} className="space-y-2.5 rounded-xl border p-4 bg-card">
+            <legend className="sr-only">Pregunta {qi + 1}</legend>
+            <p className="text-sm font-medium leading-snug">
+              <span className="text-muted-foreground mr-1.5">{qi + 1}.</span>
+              {q.text}
+            </p>
+            <div className="grid gap-2" role="group" aria-label={`Opciones de la pregunta ${qi + 1}`}>
+              {(q.options || []).map((opt, i) => {
+                const active = (byQ[q.id] || []).includes(opt.id)
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => toggleSub(q, opt.id)}
+                    aria-pressed={active}
+                    className={`flex w-full items-center gap-3 rounded-xl border-2 p-3.5 text-left text-sm font-medium transition-colors min-h-11 ${
+                      active
+                        ? 'border-brand-600 bg-brand-50 text-brand-900'
+                        : 'border-border bg-card hover:border-brand-300 hover:bg-brand-50/40'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                        active ? 'border-brand-600 bg-brand-600 text-white' : 'border-muted-foreground/40 text-muted-foreground'
+                      }`}
+                    >
+                      {String.fromCharCode(65 + i)}
+                    </span>
+                    {opt.text}
+                    {q.multipleSelect && active && <CheckCheck className="ml-auto h-4 w-4 text-brand-600" />}
+                  </button>
+                )
+              })}
+            </div>
+            {q.multipleSelect && (
+              <p className="text-xs text-muted-foreground">Puedes seleccionar varias opciones.</p>
+            )}
+          </fieldset>
+        ))}
+
+        <SubmitButton
+          disabled={!allAnswered}
+          submitting={submitting}
+          label={allAnswered ? 'Enviar respuestas' : `Responde las ${subs.length} preguntas`}
+        />
+      </form>
+    )
+  }
+
+  // —— Modo una pregunta (original) ——
   return (
     <form
       className="space-y-3"
@@ -215,9 +302,13 @@ function SemaforoForm({
   onSubmit: (payload: Record<string, unknown>) => void
   submitting: boolean
 }) {
+  // Estados de los tres modos, siempre creados (regla de hooks); cada modo usa el suyo
+  const [color, setColor] = useState<SemaforoColor | null>(myAnswer?.color || null)
+  const [colorVotes, setColorVotes] = useState<Record<string, SemaforoColor>>(myAnswer?.colorVotes || {})
+  const [votes, setVotes] = useState<Record<string, SemaforoVote>>(myAnswer?.votes || {})
+
   // Modo 'single': una consigna → tres tarjetas de color
   if (config?.mode === 'single') {
-    const [color, setColor] = useState<SemaforoColor | null>(myAnswer?.color || null)
     const labels = config.labels || {}
     return (
       <form
@@ -258,7 +349,6 @@ function SemaforoForm({
 
   // Modo 'multi': N preguntas → un color por cada una
   if (config?.mode === 'multi') {
-    const [colorVotes, setColorVotes] = useState<Record<string, SemaforoColor>>(myAnswer?.colorVotes || {})
     const labels = config.labels || {}
     const items = config.items || []
     const allVoted = items.length > 0 && items.every((i) => colorVotes[i.id])
@@ -317,8 +407,6 @@ function SemaforoForm({
   }
 
   // Modo 'items' (legacy): cada afirmación se evalúa una a una
-  const [votes, setVotes] = useState<Record<string, SemaforoVote>>(myAnswer?.votes || {})
-
   const items = config?.items || []
   const allVoted = items.every((i) => votes[i.id])
 

@@ -87,7 +87,23 @@ function aggregateMultipleChoice(
       counts[oid] = (counts[oid] || 0) + 1
     }
   }
-  return { total: answers.length, counts }
+
+  // Modo «varias preguntas»: un resultado por cada sub-pregunta del bloque
+  const subs = config.questions || []
+  if (!subs.length) return { total: answers.length, counts }
+
+  const questions = subs.map((q) => {
+    const subCounts: Record<string, number> = {}
+    for (const opt of q.options || []) subCounts[opt.id] = 0
+    for (const a of answers) {
+      const payload = parsePayload<MultipleChoiceAnswer>(a)
+      for (const oid of payload.byQuestion?.[q.id] || []) {
+        subCounts[oid] = (subCounts[oid] || 0) + 1
+      }
+    }
+    return { questionId: q.id, total: answers.length, counts: subCounts }
+  })
+  return { total: answers.length, counts, questions }
 }
 
 function aggregateSemaforo(

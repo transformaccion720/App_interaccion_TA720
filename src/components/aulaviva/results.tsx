@@ -69,28 +69,30 @@ export function ResultsView({
   }
 }
 
-function MultipleResults({
-  data,
-  config,
+// Colores de las barras de opción múltiple (mismo orden siempre)
+const MC_BAR_COLORS = [
+  'bg-brand-500', 'bg-viva-500', 'bg-energy-500', 'bg-brand-300',
+  'bg-violet-500', 'bg-cyan-600', 'bg-rose-400', 'bg-carbon-600',
+]
+
+// Barras de una lista de opciones (una pregunta, simple o de un cuestionario)
+function McOptionBars({
+  options,
+  counts,
+  total,
   showCorrect,
-  compact,
 }: {
-  data: MultipleChoiceResults
-  config: MultipleChoiceConfig
+  options: MultipleChoiceConfig['options']
+  counts: Record<string, number>
+  total: number
   showCorrect?: boolean
-  compact?: boolean
 }) {
-  const options = config?.options || []
-  const max = Math.max(1, ...options.map((o) => data.counts[o.id] || 0))
-  const COLORS = [
-    'bg-brand-500', 'bg-viva-500', 'bg-energy-500', 'bg-brand-300',
-    'bg-violet-500', 'bg-cyan-600', 'bg-rose-400', 'bg-carbon-600',
-  ]
+  const max = Math.max(1, ...options.map((o) => counts[o.id] || 0))
   return (
-    <div className={`space-y-3 ${compact ? '' : 'py-2'}`}>
+    <>
       {options.map((opt, i) => {
-        const count = data.counts[opt.id] || 0
-        const pct = data.total > 0 ? Math.round((count / data.total) * 100) : 0
+        const count = counts[opt.id] || 0
+        const pct = total > 0 ? Math.round((count / total) * 100) : 0
         const isCorrect = showCorrect && opt.correct
         return (
           <div key={opt.id} className="space-y-1">
@@ -103,10 +105,56 @@ function MultipleResults({
                 {pct}% · {count}
               </span>
             </div>
-            <Bar value={count} max={max} color={COLORS[i % COLORS.length]} />
+            <Bar value={count} max={max} color={MC_BAR_COLORS[i % MC_BAR_COLORS.length]} />
           </div>
         )
       })}
+    </>
+  )
+}
+
+function MultipleResults({
+  data,
+  config,
+  showCorrect,
+  compact,
+}: {
+  data: MultipleChoiceResults
+  config: MultipleChoiceConfig
+  showCorrect?: boolean
+  compact?: boolean
+}) {
+  const subs = config?.questions || []
+  const perQ = data.questions || []
+
+  // Modo «varias preguntas»: una sección por sub-pregunta
+  if (subs.length && perQ.length) {
+    return (
+      <div className={`space-y-5 ${compact ? '' : 'py-2'}`}>
+        {subs.map((q, qi) => {
+          const res = perQ.find((r) => r.questionId === q.id)
+          const options = (q.options || []).filter((o) => o.text.trim())
+          return (
+            <div key={q.id} className="space-y-2.5">
+              <p className="text-sm font-semibold leading-snug">
+                <span className="text-muted-foreground mr-1.5">{qi + 1}.</span>
+                {q.text}
+              </p>
+              <McOptionBars options={options} counts={res?.counts || {}} total={res?.total ?? data.total} showCorrect={showCorrect} />
+            </div>
+          )
+        })}
+        <p className="text-xs text-muted-foreground pt-1">
+          {data.total} {data.total === 1 ? 'respuesta' : 'respuestas'}
+        </p>
+      </div>
+    )
+  }
+
+  const options = config?.options || []
+  return (
+    <div className={`space-y-3 ${compact ? '' : 'py-2'}`}>
+      <McOptionBars options={options} counts={data.counts} total={data.total} showCorrect={showCorrect} />
       <p className="text-xs text-muted-foreground pt-1">
         {data.total} {data.total === 1 ? 'respuesta' : 'respuestas'}
       </p>

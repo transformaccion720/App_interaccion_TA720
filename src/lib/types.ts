@@ -37,10 +37,19 @@ export interface ChoiceOption {
   correct?: boolean
 }
 
-export interface MultipleChoiceConfig {
+// Sub-pregunta dentro de un bloque de opción múltiple (modo «varias preguntas»)
+export interface MCQuestion {
+  id: string
+  text: string
   options: ChoiceOption[]
+  multipleSelect?: boolean // permitir varias selecciones en esta sub-pregunta
+}
+
+export interface MultipleChoiceConfig {
+  options: ChoiceOption[] // modo de una pregunta (el enunciado es el título del bloque)
   multipleSelect?: boolean
   showCorrect?: boolean // resaltar la(s) correcta(s) en resultados
+  questions?: MCQuestion[] // modo «varias preguntas»: N preguntas con sus opciones en el mismo bloque
 }
 
 export type SemaforoMode = 'single' | 'multi' | 'items'
@@ -115,7 +124,8 @@ export type QuestionConfig =
 // ---------- Cargas útiles de respuestas ----------
 
 export interface MultipleChoiceAnswer {
-  optionIds: string[]
+  optionIds?: string[] // (modo una pregunta)
+  byQuestion?: Record<string, string[]> // (modo varias preguntas) sub-pregunta → opciones elegidas
 }
 
 export interface SemaforoAnswer {
@@ -178,9 +188,16 @@ export interface QuestionAdmin extends QuestionPublic {
 }
 
 // Resultados agregados por tipo
+export interface MCQuestionResults {
+  questionId: string
+  total: number // participantes que respondieron el bloque
+  counts: Record<string, number>
+}
+
 export interface MultipleChoiceResults {
   total: number
   counts: Record<string, number>
+  questions?: MCQuestionResults[] // (modo varias preguntas) resultados por sub-pregunta
 }
 
 export interface SemaforoItemResults {
