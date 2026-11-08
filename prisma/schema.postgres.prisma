@@ -4,10 +4,11 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
+// Nota: sin directUrl — la app solo necesita DATABASE_URL (la cadena *pooled*
+// de Neon). Una sola variable de base de datos = menos errores al pegarla.
 
 model Teacher {
   id           String    @id @default(cuid())
@@ -34,7 +35,7 @@ model Session {
   updatedAt       DateTime      @updatedAt
   participants    Participant[]
   questions       Question[]
-  teacher         Teacher?      @relation(fields: [teacherId], references: [id])
+  teacher         Teacher?      @relation(fields: [teacherId], references: [id], onDelete: SetNull)
 
   @@index([joinCode])
   @@index([teacherId])

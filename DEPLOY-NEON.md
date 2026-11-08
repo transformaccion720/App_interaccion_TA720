@@ -16,9 +16,9 @@ JSON se guardan como texto, portables entre motores).
 ## 1. Crear la base de datos en Neon
 
 1. Crea cuenta gratis en [neon.tech](https://neon.tech) → **New Project** (elige una región cercana, p. ej. `us-east-2` o `sa-east-1`).
-2. En el **Dashboard** verás dos cadenas de conexión; cópialas ambas:
-   - **Pooled connection** (termina en `-pooler...`): será `DATABASE_URL`.
-   - **Direct connection**: será `DIRECT_URL`.
+2. En el **Dashboard** copia la cadena **Pooled connection** (el host termina en
+   `-pooler...`): será `DATABASE_URL`. Es la **única** variable de base de datos que
+   la aplicación necesita (la conexión directa ya no se usa en el esquema).
 3. Si usan ramas (branches) de Neon, usa la rama `main` para producción.
 
 ## 2. Preparar el esquema para PostgreSQL
@@ -39,9 +39,11 @@ cp prisma/schema.postgres.prisma prisma/schema.prisma
 Crea tu `.env` local con las credenciales de Neon:
 
 ```env
-DATABASE_URL="postgresql://USER:PASS@ep-xxxx-pooler.REGION.aws.neon.tech/neondb?sslmode=require"
-DIRECT_URL="postgresql://USER:PASS@ep-xxxx.REGION.aws.neon.tech/neondb?sslmode=require"
+DATABASE_URL=postgresql://USER:PASS@ep-xxxx-pooler.REGION.aws.neon.tech/neondb?sslmode=require
 ```
+
+> En un archivo `.env` local las comillas son aceptables; al pegar el valor en
+> **Vercel**, hazlo **sin comillas** y sin espacios.
 
 Y aplica el esquema a la base de datos:
 
@@ -74,15 +76,22 @@ GitHub CLI (`gh auth login`) o SSH.
 
    | Nombre | Valor |
    | --- | --- |
-   | `DATABASE_URL` | cadena **pooled** de Neon (termina en `-pooler…`) |
-   | `DIRECT_URL` | cadena **directa** de Neon |
-   | `AUTH_SECRET` | secreto nuevo para firmar sesiones: `openssl rand -hex 32` |
+   | `DATABASE_URL` | cadena **pooled** de Neon (empieza con `postgresql://`, host `-pooler…`, termina con `?sslmode=require`) |
+   | `AUTH_SECRET` | secreto para firmar sesiones: `openssl rand -hex 32` |
+
+   > Solo **2 variables**. `DIRECT_URL` ya no se usa: si la dejaste configurada
+   > puedes borrarla. El build ahora ejecuta `scripts/vercel-preflight.mjs`, que
+   > **detiene el deploy con un mensaje claro** si `DATABASE_URL` no es una cadena
+   > de Neon válida o falta `AUTH_SECRET` — así nunca más se publica una app que
+   > no puede iniciar sesión por una variable mal pegada.
 
 3. En **Settings → Build & Output Settings**, sobrescribe el **Build Command** con:
 
    ```bash
-   cp prisma/schema.postgres.prisma prisma/schema.prisma && npx prisma generate && next build
+   npm run vercel-build
    ```
+
+   (equivale a: preflight de variables → copiar esquema PostgreSQL → `prisma generate` → `next build`).
 
    > **Desde la versión actual el repo ya se auto-configura en Vercel:** `postinstall`
    > genera el cliente Prisma PostgreSQL y existe un script `vercel-build` con los
@@ -114,7 +123,6 @@ las variables de Neon en `.env`: `DATABASE_URL` (**pooled**) y `DATABASE_URL_UNP
 (directa). Completa `.env` con:
 
 ```env
-DIRECT_URL=<el mismo valor de DATABASE_URL_UNPOOLED>
 AUTH_SECRET=<genera uno nuevo: openssl rand -hex 32>
 ```
 
@@ -139,8 +147,8 @@ docente o moderador desde el panel (pestaña **Usuarios**). Tras aplicar el esqu
 crea la cuenta inicial de administrador:
 
 ```bash
-# apuntando DATABASE_URL / DIRECT_URL a Neon y con el cliente generado
-# desde prisma/schema.postgres.prisma:
+# apuntando DATABASE_URL a Neon (source scripts/load-neon-env.sh) y con el
+# cliente generado desde prisma/schema.postgres.prisma:
 npx tsx scripts/seed-teacher.ts
 # Crea: docente@aulaviva.app / AulaViva2026 (rol ADMIN)
 ```
@@ -169,11 +177,18 @@ Los 3 fallos típicos y cómo se ven:
    comillas del archivo de texto. En Vercel el valor se pega **sin comillas** y sin espacios.
 3. **«No se pudo conectar a la base de datos»** — la URL no es la *pooled* de Neon
    (`...-pooler...`) o el branch de Neon está suspendido (entra al panel de Neon y actívalo).
+4. **«La URL must start with the protocol `postgresql://`»** y en `/api/health` se ve
+   `esquemaDetectado: "file:"` con `urlLongitud` ≈ 20–25 — el valor de `DATABASE_URL`
+   es una **ruta de base SQLite** (p. ej. `file:./prisma/dev.db`), no la cadena de Neon.
+   Edita la variable en Vercel, pega la *pooled connection* (empieza con
+   `postgresql://`) sin comillas y vuelve a desplegar. Desde esta versión el
+   propio **build de Vercel se detiene con un mensaje claro** si detecta esto
+   (script `vercel-preflight`).
 
 Checklist mínimo tras cambiar variables o código:
 
 1. Abre `https://TU-APP.vercel.app/api/health` → debe responder
-   `"ok": true` con `urlEsPostgres: true` y `esquema.ok: true`.
+   `"ok": true` con `urlEsPostgres: true`, `urlLongitud` ≈ 149 y `esquema.ok: true`.
 2. Si `/api/health` da 404: el deploy está desactualizado o falló el build →
    revisa en Vercel → *Deployments* que el último deploy sea **Ready** y con el
    commit más reciente; si no, *Redeploy*.

@@ -58,6 +58,8 @@ export async function POST(req: Request) {
     if (/environment variable not found/.test(msg)) {
       const varName = (detalle.match(/Environment variable not found: (\w+)/i)?.[1] || 'DATABASE_URL').toUpperCase()
       pista = `La variable ${varName} no está configurada en este entorno de Vercel. Añádela en Settings → Environment Variables (marca Production Y Preview) y vuelve a desplegar.`
+    } else if (/must start with the protocol|must start with protocol/.test(msg)) {
+      pista = 'El valor de DATABASE_URL no es una cadena de conexión de PostgreSQL: se pegó una ruta de base SQLite (p. ej. "file:./prisma/dev.db"), un valor con comillas o incompleto. En Vercel → Settings → Environment Variables → DATABASE_URL → Edit: pega la cadena «Pooled connection» del panel de Neon (empieza con postgresql:// y termina con ?sslmode=require) SIN comillas, marca Production y vuelve a desplegar.'
     } else if (/malformed|invalid|cannot parse|failed to parse|error parsing|couldn'?t parse/.test(msg)) {
       pista = 'La cadena de conexión no es válida. Casi siempre ocurre si el valor se pegó con comillas: en Vercel pega el valor SIN comillas y sin espacios extra.'
     } else if (/can'?t reach database|p1001|etimedout|econnrefused|connection terminated|too many connections/.test(msg)) {
