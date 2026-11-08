@@ -41,6 +41,8 @@ import {
   Info,
   CalendarDays,
   CalendarPlus,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react'
 
 interface TeacherInfo {
@@ -59,6 +61,7 @@ interface SessionSummary {
   maxParticipants: number
   createdAt: string
   scheduledAt: string | null
+  archivedAt: string | null
   updatedAt: string
   _count: { questions: number; participants: number }
 }
@@ -78,7 +81,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   closed: { label: 'Finalizada', cls: 'bg-slate-200 text-slate-700' },
 }
 
-// Pestañas del listado de sesiones, una por estado.
+// Pestañas del listado de sesiones, una por estado (más archivadas).
 const TAB_DEFS: { key: TabKey; status: string; label: string; badge: string; empty: string }[] = [
   {
     key: 'curso',
@@ -101,9 +104,16 @@ const TAB_DEFS: { key: TabKey; status: string; label: string; badge: string; emp
     badge: 'bg-slate-200 text-slate-700',
     empty: 'Aún no hay sesiones finalizadas. Cuando cierres una aparecerá aquí.',
   },
+  {
+    key: 'archivadas',
+    status: 'archived',
+    label: 'Archivadas',
+    badge: 'bg-muted text-muted-foreground',
+    empty: 'No hay sesiones archivadas. Archiva las que ya no uses para mantener el panel ordenado.',
+  },
 ]
 
-type TabKey = 'curso' | 'preparacion' | 'finalizadas'
+type TabKey = 'curso' | 'preparacion' | 'finalizadas' | 'archivadas'
 
 const ROLE_META: Record<string, { label: string; cls: string }> = {
   ADMIN: { label: 'Administrador', cls: 'bg-brand-100 text-brand-800' },
@@ -482,13 +492,14 @@ function SessionsList({
   }, [loadSessions])
 
   // Pestaña por defecto al cargar: la primera con contenido
-  // (en curso → en preparación → finalizadas).
+  // (en curso → en preparación → finalizadas → archivadas).
   useEffect(() => {
     if (sessions && !tabInit.current) {
       tabInit.current = true
       if (sessions.some((s) => s.status === 'live')) setTab('curso')
       else if (sessions.some((s) => s.status === 'draft')) setTab('preparacion')
       else if (sessions.some((s) => s.status === 'closed')) setTab('finalizadas')
+      else if (sessions.some((s) => s.archivedAt)) setTab('archivadas')
     }
   }, [sessions])
 
@@ -496,9 +507,20 @@ function SessionsList({
   //  · En curso / Finalizadas: actividad más reciente primero.
   //  · En preparación: las que tienen fecha programada primero (la más
   //    cercana arriba); las sin fecha van al final.
+  //  · Archivadas: las archivadas se sacan de las pestañas normales y van
+  //    aquí, la archivada más recientemente arriba.
   const groups = useMemo(() => {
-    const g: Record<TabKey, SessionSummary[]> = { curso: [], preparacion: [], finalizadas: [] }
+    const g: Record<TabKey, SessionSummary[]> = {
+      curso: [],
+      preparacion: [],
+      finalizadas: [],
+      archivadas: [],
+    }
     for (const s of sessions || []) {
+      if (s.archivedAt) {
+        g.archivadas.push(s)
+        continue
+      }
       if (s.status === 'live') g.curso.push(s)
       else if (s.status === 'closed') g.finalizadas.push(s)
       else g.preparacion.push(s)
@@ -512,11 +534,46 @@ function SessionsList({
       if (b.scheduledAt) return 1
       return byUpdate(a, b)
     }
+    const byArchived = (a: SessionSummary, b: SessionSummary) =>
+      +new Date(b.archivedAt || 0) - +new Date(a.archivedAt || 0)
     g.curso.sort(byUpdate)
     g.preparacion.sort(byScheduled)
     g.finalizadas.sort(byUpdate)
+    g.archivadas.sort(byArchived)
     return g
   }, [sessions])
+
+  // Archiva o restaura una sesión (fecha de archivado = ahora / null).
+  async function setArchived(s: SessionSummary, archived: boolean) {
+    try {
+      const res = await authFetch(`/api/sessions/${s.id}/manage`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archivedAt: archived ? new Date().toISOString() : null }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast({ title: data.error || 'No se pudo actualizar la sesión', variant: 'destructive' })
+        return
+      }
+      setSessions(
+        (prev) =>
+          prev?.map((x) =>
+            x.id === s.id
+              ? { ...x, archivedAt: archived ? new Date().toISOString() : null }
+              : x
+          ) || prev
+      )
+      toast({
+        title: archived ? 'Sesión archivada' : 'Sesión restaurada',
+        description: archived
+          ? 'La movimos a la pestaña «Archivadas»; los alumnos ya no podrán unirse.'
+          : 'Volvió a su pestaña según su estado.',
+      })
+    } catch {
+      toast({ title: 'Error de conexión', variant: 'destructive' })
+    }
+  }
 
   async function createDemo() {
     setDemoBusy(true)
@@ -620,7 +677,13 @@ function SessionsList({
               ) : (
                 <div className="grid sm:grid-cols-2 gap-4">
                   {groups[t.key].map((s) => (
-                    <SessionCard key={s.id} s={s} router={router} />
+                    <SessionCard
+                      key={s.id}
+                      s={s}
+                      router={router}
+                      onArchive={() => setArchived(s, true)}
+                      onRestore={() => setArchived(s, false)}
+                    />
                   ))}
                 </div>
               )}
@@ -657,18 +720,42 @@ function SessionsList({
   )
 }
 
-// Tarjeta individual de sesión (usada en las tres pestañas).
+// Tarjeta individual de sesión (usada en las cuatro pestañas).
 function SessionCard({
   s,
   router,
+  onArchive,
+  onRestore,
 }: {
   s: SessionSummary
   router: ReturnType<typeof useRouter>
+  onArchive: () => void
+  onRestore: () => void
 }) {
   const st = STATUS_META[s.status] || STATUS_META.draft
+  const [busy, setBusy] = useState(false)
+  const canArchive = !s.archivedAt && (s.status === 'draft' || s.status === 'closed')
+  async function runAction(fn: () => void) {
+    if (busy) return
+    if (!window.confirm(
+      s.archivedAt
+        ? `¿Restaurar «${s.title}»? Volverá a su pestaña y los alumnos podrán unirse de nuevo.`
+        : `¿Archivar «${s.title}»? Se moverá a la pestaña «Archivadas» y los alumnos ya no podrán unirse.`
+    ))
+      return
+    setBusy(true)
+    try {
+      fn()
+    } finally {
+      // El estado se refresca en el padre; libero el botón por si falla.
+      setTimeout(() => setBusy(false), 1500)
+    }
+  }
   return (
     <div
-      className="group rounded-2xl border bg-card p-5 flex flex-col gap-3 hover:border-brand-300 hover:shadow-md hover:shadow-brand-100/60 transition-all"
+      className={`group rounded-2xl border bg-card p-5 flex flex-col gap-3 hover:border-brand-300 hover:shadow-md hover:shadow-brand-100/60 transition-all ${
+        s.archivedAt ? 'border-dashed opacity-75' : ''
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <h3 className="font-bold leading-snug line-clamp-2">{s.title}</h3>
@@ -687,6 +774,14 @@ function SessionCard({
             title="Fecha programada de la sesión"
           >
             <CalendarDays className="h-3.5 w-3.5" /> Sesión: {formatDateTimeES(s.scheduledAt)}
+          </span>
+        )}
+        {s.archivedAt && (
+          <span
+            className="flex items-center gap-1 font-semibold"
+            title="Los alumnos ya no pueden unirse"
+          >
+            <Archive className="h-3.5 w-3.5" /> Archivada: {formatDateES(s.archivedAt)}
           </span>
         )}
       </div>
@@ -709,12 +804,39 @@ function SessionCard({
           <Users className="h-3.5 w-3.5" /> {s._count.participants}/{s.maxParticipants}
         </span>
       </div>
-      <Button
-        className="w-full mt-auto group-hover:bg-brand-600"
-        onClick={() => router.push(`/admin/${s.id}`)}
-      >
-        Abrir panel <ChevronRight className="h-4 w-4 ml-1" />
-      </Button>
+      <div className="flex gap-2 mt-auto">
+        {canArchive && (
+          <Button
+            variant="outline"
+            className="shrink-0"
+            disabled={busy}
+            title="Se mueve a «Archivadas»; los alumnos ya no podrán unirse"
+            onClick={() => runAction(onArchive)}
+          >
+            <Archive className="h-4 w-4 mr-1" />
+            {busy ? 'Archivando…' : 'Archivar'}
+          </Button>
+        )}
+        {s.archivedAt && (
+          <Button
+            variant="outline"
+            className="shrink-0"
+            disabled={busy}
+            title="Vuelve a su pestaña según su estado"
+            onClick={() => runAction(onRestore)}
+          >
+            <ArchiveRestore className="h-4 w-4 mr-1" />
+            {busy ? 'Restaurando…' : 'Restaurar'}
+          </Button>
+        )}
+        <Button
+          variant={s.archivedAt ? 'outline' : 'default'}
+          className="flex-1 group-hover:bg-brand-600"
+          onClick={() => router.push(`/admin/${s.id}`)}
+        >
+          Abrir panel <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
     </div>
   )
 }

@@ -35,6 +35,7 @@ model Session {
   maxParticipants Int          @default(100)
   status          String       @default("draft") // draft | live | closed
   scheduledAt     DateTime? // fecha programada de la sesión (la define el docente)
+  archivedAt      DateTime? // fecha de archivado (null = sesión activa en sus pestañas)
   teacherId       String? // docente propietario (opcional: sesiones demo sin dueño)
   teacher         Teacher?     @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   createdAt       DateTime     @default(now())

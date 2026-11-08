@@ -21,6 +21,7 @@ export async function GET() {
       maxParticipants: true,
       createdAt: true,
       scheduledAt: true,
+      archivedAt: true,
       updatedAt: true,
       _count: { select: { questions: true, participants: true } },
     },

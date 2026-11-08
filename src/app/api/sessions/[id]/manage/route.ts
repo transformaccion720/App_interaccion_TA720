@@ -48,6 +48,7 @@ export async function GET(
       status: session.status,
       createdAt: session.createdAt.toISOString(),
       scheduledAt: session.scheduledAt ? session.scheduledAt.toISOString() : null,
+      archivedAt: session.archivedAt ? session.archivedAt.toISOString() : null,
     },
     questions: questionList,
     participantCount,
@@ -78,6 +79,16 @@ export async function PUT(
         const d = new Date(String(body.scheduledAt))
         if (Number.isNaN(d.getTime())) return jsonError('La fecha de la sesión no es válida')
         data.scheduledAt = d
+      }
+    }
+    if ('archivedAt' in body) {
+      // null/'' restaura la sesión; una fecha válida la archiva.
+      if (body.archivedAt === null || body.archivedAt === '') {
+        data.archivedAt = null
+      } else {
+        const d = new Date(String(body.archivedAt))
+        if (Number.isNaN(d.getTime())) return jsonError('La fecha de archivado no es válida')
+        data.archivedAt = d
       }
     }
     if ('maxParticipants' in body) {

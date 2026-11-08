@@ -18,6 +18,7 @@ export async function POST(req: Request) {
       include: { _count: { select: { participants: true } } },
     })
     if (!session) return jsonError('No existe una sesión con ese código', 404)
+    if (session.archivedAt) return jsonError('Esta sesión ya no está disponible', 409)
     if (session.status === 'closed') return jsonError('Esta sesión ya finalizó', 409)
     if (session._count.participants >= session.maxParticipants) {
       return jsonError(`La sesión está llena (máx. ${session.maxParticipants} participantes)`, 409)
