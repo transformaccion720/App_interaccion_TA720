@@ -104,6 +104,20 @@ export async function PUT(
       )
     }
 
+    if (body.resetAnswers === true) {
+      // Reinicia el marcado de preguntas: borra TODAS las respuestas de los
+      // participantes y devuelve las preguntas al estado «pendiente».
+      // Los participantes no se tocan. Operación atómica.
+      const [deleted] = await db.$transaction([
+        db.answer.deleteMany({ where: { question: { sessionId: id } } }),
+        db.question.updateMany({
+          where: { sessionId: id },
+          data: { state: 'pending', openedAt: null },
+        }),
+      ])
+      return Response.json({ ok: true, deletedAnswers: deleted.count })
+    }
+
     const updated = await db.session.update({ where: { id }, data })
     return Response.json({ ok: true, status: updated.status, title: updated.title })
   } catch {

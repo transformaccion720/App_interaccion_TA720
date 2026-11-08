@@ -10,6 +10,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { toast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/client-auth'
 import { formatDateES, formatDateTimeES, isoToLocalInput, localInputToIso } from '@/lib/utils'
@@ -31,6 +42,7 @@ import {
   Radio,
   CircleStop,
   CalendarDays,
+  RotateCcw,
 } from 'lucide-react'
 
 const POLL_MS = 2000
@@ -50,6 +62,7 @@ export default function AdminSessionPage() {
   const [editTitle, setEditTitle] = useState('')
   const [editMax, setEditMax] = useState(100)
   const [editDate, setEditDate] = useState('') // fecha programada (datetime-local)
+  const [resetBusy, setResetBusy] = useState(false)
   const busyRef = useRef(false)
 
   // ---- Autenticación: cookie del docente primero; código de administrador como respaldo ----
@@ -323,6 +336,35 @@ export default function AdminSessionPage() {
     setSettingsOpen(true)
   }
 
+  // Reinicia el marcado de preguntas: borra las respuestas y pone las
+  // preguntas en «pendiente». Pide confirmación con un popup antes (AlertDialog).
+  async function resetAnswers() {
+    if (!live) return
+    setResetBusy(true)
+    try {
+      const res = await authFetch(`/api/sessions/${sessionId}/manage`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode || '' },
+        body: JSON.stringify({ resetAnswers: true }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast({ title: data.error || 'No se pudo reiniciar el marcado', variant: 'destructive' })
+        return
+      }
+      toast({
+        title: 'Marcado reiniciado',
+        description: `${data.deletedAnswers ?? 0} respuesta(s) borrada(s); preguntas de nuevo en pendiente.`,
+      })
+      setSettingsOpen(false)
+      await refresh()
+    } catch {
+      toast({ title: 'Error de conexión', variant: 'destructive' })
+    } finally {
+      setResetBusy(false)
+    }
+  }
+
   if (!live) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -499,6 +541,56 @@ export default function AdminSessionPage() {
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setSettingsOpen(false)}>Cancelar</Button>
               <Button onClick={saveSettings}><RefreshCw className="h-4 w-4 mr-1.5" /> Guardar</Button>
+            </div>
+
+            {/* Zona de riesgo: reiniciar el marcado de preguntas */}
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+              <p className="text-sm font-semibold flex items-center gap-1.5">
+                <RotateCcw className="h-4 w-4 text-destructive" />
+                Reiniciar el marcado de preguntas
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Borra las respuestas registradas y todas las preguntas vuelven a «pendiente»,
+                listas para volver a lanzarse. Los participantes no se eliminan.
+              </p>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={resetBusy || live.questions.length === 0}
+                    title={
+                      live.questions.length === 0
+                        ? 'No hay preguntas que reiniciar'
+                        : 'Borra las respuestas y vuelve las preguntas a pendiente'
+                    }
+                  >
+                    {resetBusy ? 'Reiniciando…' : 'Reiniciar respuestas'}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Seguro que quieres reiniciar el marcado?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Se borrarán todas las respuestas de los participantes y las{' '}
+                      {live.questions.length} pregunta(s) volverán al estado «pendiente».
+                      Los participantes permanecen en la sesión. Esta acción no se puede deshacer.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={resetBusy}>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={resetBusy}
+                      className="bg-destructive text-white hover:bg-destructive/90"
+                      onClick={() => {
+                        void resetAnswers()
+                      }}
+                    >
+                      {resetBusy ? 'Reiniciando…' : 'Sí, reiniciar'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </DialogContent>
