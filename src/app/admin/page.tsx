@@ -5,7 +5,7 @@
 // Los alumnos NO inician sesión: entran con el código o QR desde /join.
 // El registro público está deshabilitado: solo el ADMIN crea cuentas
 // (trainers o moderadores) desde la gestión interna de usuarios.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BrandLogo } from '@/components/aulaviva/brand-logo'
 import { authFetch, saveAuthToken, clearAuthToken } from '@/lib/client-auth'
+import { formatDateES, formatDateTimeES, localInputToIso } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 import {
   Presentation,
@@ -38,6 +39,8 @@ import {
   KeyRound,
   Trash2,
   Info,
+  CalendarDays,
+  CalendarPlus,
 } from 'lucide-react'
 
 interface TeacherInfo {
@@ -54,6 +57,8 @@ interface SessionSummary {
   joinCode: string
   status: string
   maxParticipants: number
+  createdAt: string
+  scheduledAt: string | null
   updatedAt: string
   _count: { questions: number; participants: number }
 }
@@ -72,6 +77,33 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   live: { label: 'En curso', cls: 'bg-viva-100 text-viva-800' },
   closed: { label: 'Finalizada', cls: 'bg-slate-200 text-slate-700' },
 }
+
+// Pestañas del listado de sesiones, una por estado.
+const TAB_DEFS: { key: TabKey; status: string; label: string; badge: string; empty: string }[] = [
+  {
+    key: 'curso',
+    status: 'live',
+    label: 'En curso',
+    badge: 'bg-viva-100 text-viva-800',
+    empty: 'Ninguna sesión está en curso ahora mismo. Entra a una sesión en preparación y actívala en vivo.',
+  },
+  {
+    key: 'preparacion',
+    status: 'draft',
+    label: 'En preparación',
+    badge: 'bg-energy-100 text-energy-800',
+    empty: 'No hay sesiones en preparación. Crea una con el formulario de la derecha.',
+  },
+  {
+    key: 'finalizadas',
+    status: 'closed',
+    label: 'Finalizadas',
+    badge: 'bg-slate-200 text-slate-700',
+    empty: 'Aún no hay sesiones finalizadas. Cuando cierres una aparecerá aquí.',
+  },
+]
+
+type TabKey = 'curso' | 'preparacion' | 'finalizadas'
 
 const ROLE_META: Record<string, { label: string; cls: string }> = {
   ADMIN: { label: 'Administrador', cls: 'bg-brand-100 text-brand-800' },
@@ -420,6 +452,9 @@ function SessionsList({
   router: ReturnType<typeof useRouter>
 }) {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [tab, setTab] = useState<TabKey>('preparacion')
+  const tabInit = useRef(false)
   const [demoBusy, setDemoBusy] = useState(false)
   const [legacyCode, setLegacyCode] = useState('')
   const [legacyBusy, setLegacyBusy] = useState(false)
@@ -435,7 +470,9 @@ function SessionsList({
       }
       const data = await res.json()
       setSessions(data.sessions || [])
+      setLoadError(false)
     } catch {
+      setLoadError(true)
       setSessions([])
     }
   }, [])
@@ -443,6 +480,43 @@ function SessionsList({
   useEffect(() => {
     loadSessions()
   }, [loadSessions])
+
+  // Pestaña por defecto al cargar: la primera con contenido
+  // (en curso → en preparación → finalizadas).
+  useEffect(() => {
+    if (sessions && !tabInit.current) {
+      tabInit.current = true
+      if (sessions.some((s) => s.status === 'live')) setTab('curso')
+      else if (sessions.some((s) => s.status === 'draft')) setTab('preparacion')
+      else if (sessions.some((s) => s.status === 'closed')) setTab('finalizadas')
+    }
+  }, [sessions])
+
+  // Sesiones agrupadas por estado y ordenadas dentro de cada pestaña:
+  //  · En curso / Finalizadas: actividad más reciente primero.
+  //  · En preparación: las que tienen fecha programada primero (la más
+  //    cercana arriba); las sin fecha van al final.
+  const groups = useMemo(() => {
+    const g: Record<TabKey, SessionSummary[]> = { curso: [], preparacion: [], finalizadas: [] }
+    for (const s of sessions || []) {
+      if (s.status === 'live') g.curso.push(s)
+      else if (s.status === 'closed') g.finalizadas.push(s)
+      else g.preparacion.push(s)
+    }
+    const byUpdate = (a: SessionSummary, b: SessionSummary) =>
+      +new Date(b.updatedAt) - +new Date(a.updatedAt)
+    const byScheduled = (a: SessionSummary, b: SessionSummary) => {
+      if (a.scheduledAt && b.scheduledAt)
+        return +new Date(a.scheduledAt) - +new Date(b.scheduledAt)
+      if (a.scheduledAt) return -1
+      if (b.scheduledAt) return 1
+      return byUpdate(a, b)
+    }
+    g.curso.sort(byUpdate)
+    g.preparacion.sort(byScheduled)
+    g.finalizadas.sort(byUpdate)
+    return g
+  }, [sessions])
 
   async function createDemo() {
     setDemoBusy(true)
@@ -502,7 +576,18 @@ function SessionsList({
         </div>
       )}
 
-      {sessions !== null && sessions.length === 0 && (
+      {sessions !== null && loadError && (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-5 text-sm text-destructive space-y-1">
+          <p className="font-semibold">No se pudieron cargar las sesiones</p>
+          <p className="leading-relaxed">
+            Revisa tu conexión y recarga la página. Si esto ocurre justo después de un despliegue,
+            puede faltar actualizar la base de datos (ver DEPLOY-NEON.md, paso «Actualizar la base de
+            datos en Neon»).
+          </p>
+        </div>
+      )}
+
+      {sessions !== null && !loadError && sessions.length === 0 && (
         <div className="rounded-2xl border border-dashed p-10 text-center bg-card space-y-2">
           <Presentation className="h-10 w-10 mx-auto text-brand-600" />
           <h3 className="font-bold text-lg">Aún no tienes sesiones</h3>
@@ -513,51 +598,35 @@ function SessionsList({
         </div>
       )}
 
-      {sessions !== null && sessions.length > 0 && (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {sessions.map((s) => {
-            const st = STATUS_META[s.status] || STATUS_META.draft
-            return (
-              <div
-                key={s.id}
-                className="group rounded-2xl border bg-card p-5 flex flex-col gap-3 hover:border-brand-300 hover:shadow-md hover:shadow-brand-100/60 transition-all"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-bold leading-snug line-clamp-2">{s.title}</h3>
-                  <Badge variant="secondary" className={`${st.cls} shrink-0`}>{st.label}</Badge>
+      {sessions !== null && !loadError && sessions.length > 0 && (
+        <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+          <TabsList className="mb-4 flex-wrap h-auto">
+            {TAB_DEFS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key}>
+                {t.label}
+                <Badge variant="secondary" className={`${t.badge} ml-1.5 px-1.5`}>
+                  {groups[t.key].length}
+                </Badge>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {TAB_DEFS.map((t) => (
+            <TabsContent key={t.key} value={t.key} className="mt-0">
+              {groups[t.key].length === 0 ? (
+                <div className="rounded-2xl border border-dashed p-8 text-center bg-card text-sm text-muted-foreground">
+                  {t.empty}
                 </div>
-                {s.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">{s.description}</p>
-                )}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <button
-                    className="flex items-center gap-1 font-semibold text-foreground hover:text-brand-700"
-                    title="Copiar código de acceso"
-                    onClick={() => {
-                      navigator.clipboard?.writeText(s.joinCode)
-                      toast({ title: 'Código copiado' })
-                    }}
-                  >
-                    <QrCode className="h-3.5 w-3.5" /> Código: {s.joinCode}
-                    <ClipboardCopy className="h-3 w-3" />
-                  </button>
-                  <span className="flex items-center gap-1">
-                    <ListChecks className="h-3.5 w-3.5" /> {s._count.questions} preguntas
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" /> {s._count.participants}/{s.maxParticipants}
-                  </span>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {groups[t.key].map((s) => (
+                    <SessionCard key={s.id} s={s} router={router} />
+                  ))}
                 </div>
-                <Button
-                  className="w-full mt-auto group-hover:bg-brand-600"
-                  onClick={() => router.push(`/admin/${s.id}`)}
-                >
-                  Abrir panel <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-            )
-          })}
-        </div>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
       )}
 
       <Card>
@@ -588,6 +657,68 @@ function SessionsList({
   )
 }
 
+// Tarjeta individual de sesión (usada en las tres pestañas).
+function SessionCard({
+  s,
+  router,
+}: {
+  s: SessionSummary
+  router: ReturnType<typeof useRouter>
+}) {
+  const st = STATUS_META[s.status] || STATUS_META.draft
+  return (
+    <div
+      className="group rounded-2xl border bg-card p-5 flex flex-col gap-3 hover:border-brand-300 hover:shadow-md hover:shadow-brand-100/60 transition-all"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="font-bold leading-snug line-clamp-2">{s.title}</h3>
+        <Badge variant="secondary" className={`${st.cls} shrink-0`}>{st.label}</Badge>
+      </div>
+      {s.description && (
+        <p className="text-sm text-muted-foreground line-clamp-2">{s.description}</p>
+      )}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1" title="Fecha de creación (automática)">
+          <CalendarPlus className="h-3.5 w-3.5" /> Creada: {formatDateES(s.createdAt)}
+        </span>
+        {s.scheduledAt && (
+          <span
+            className="flex items-center gap-1 font-semibold text-brand-700"
+            title="Fecha programada de la sesión"
+          >
+            <CalendarDays className="h-3.5 w-3.5" /> Sesión: {formatDateTimeES(s.scheduledAt)}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <button
+          className="flex items-center gap-1 font-semibold text-foreground hover:text-brand-700"
+          title="Copiar código de acceso"
+          onClick={() => {
+            navigator.clipboard?.writeText(s.joinCode)
+            toast({ title: 'Código copiado' })
+          }}
+        >
+          <QrCode className="h-3.5 w-3.5" /> Código: {s.joinCode}
+          <ClipboardCopy className="h-3 w-3" />
+        </button>
+        <span className="flex items-center gap-1">
+          <ListChecks className="h-3.5 w-3.5" /> {s._count.questions} preguntas
+        </span>
+        <span className="flex items-center gap-1">
+          <Users className="h-3.5 w-3.5" /> {s._count.participants}/{s.maxParticipants}
+        </span>
+      </div>
+      <Button
+        className="w-full mt-auto group-hover:bg-brand-600"
+        onClick={() => router.push(`/admin/${s.id}`)}
+      >
+        Abrir panel <ChevronRight className="h-4 w-4 ml-1" />
+      </Button>
+    </div>
+  )
+}
+
 // ==================== SECCIÓN: NUEVA SESIÓN ====================
 
 function NewSessionCard() {
@@ -595,6 +726,7 @@ function NewSessionCard() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [max, setMax] = useState(100)
+  const [scheduled, setScheduled] = useState('') // fecha programada (datetime-local, opcional)
   const [creating, setCreating] = useState(false)
 
   async function createSession(e: React.FormEvent) {
@@ -608,7 +740,12 @@ function NewSessionCard() {
       const res = await authFetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, maxParticipants: max }),
+        body: JSON.stringify({
+          title,
+          description,
+          maxParticipants: max,
+          scheduledAt: localInputToIso(scheduled),
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -671,6 +808,26 @@ function NewSessionCard() {
               className="h-11 w-32"
             />
             <p className="text-xs text-muted-foreground">Por defecto, 100 alumnos.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-date">Fecha de la sesión (opcional)</Label>
+            <Input
+              id="s-date"
+              type="datetime-local"
+              value={scheduled}
+              onChange={(e) => setScheduled(e.target.value)}
+              className="h-11"
+            />
+            <p className="text-xs text-muted-foreground">
+              ¿Cuándo se realizará? La podrás cambiar después en Ajustes.
+            </p>
+          </div>
+          <div className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2.5 text-xs text-muted-foreground">
+            <CalendarPlus className="h-3.5 w-3.5 mt-0.5 shrink-0 text-brand-600" />
+            <span>
+              La <strong className="text-foreground">fecha de creación</strong> se guarda
+              automáticamente al crear la sesión (hoy, {formatDateES(new Date())}).
+            </span>
           </div>
           <Button type="submit" size="lg" className="w-full min-h-11" disabled={creating}>
             <Plus className="h-5 w-5 mr-1.5" />

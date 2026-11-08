@@ -30,6 +30,7 @@ model Session {
   adminCode       String        @unique
   maxParticipants Int           @default(100)
   status          String        @default("draft")
+  scheduledAt     DateTime? // fecha programada de la sesión (la define el docente)
   teacherId       String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt

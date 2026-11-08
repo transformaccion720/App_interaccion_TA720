@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { toast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/client-auth'
+import { formatDateES, formatDateTimeES, isoToLocalInput, localInputToIso } from '@/lib/utils'
 import { QrDialog } from '@/components/aulaviva/qr-dialog'
 import { PresentationOverlay } from '@/components/aulaviva/presentation'
 import { LiveTab } from '@/components/aulaviva/live-tab'
@@ -29,6 +30,7 @@ import {
   Copy,
   Radio,
   CircleStop,
+  CalendarDays,
 } from 'lucide-react'
 
 const POLL_MS = 2000
@@ -47,6 +49,7 @@ export default function AdminSessionPage() {
   const [presentId, setPresentId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editMax, setEditMax] = useState(100)
+  const [editDate, setEditDate] = useState('') // fecha programada (datetime-local)
   const busyRef = useRef(false)
 
   // ---- Autenticación: cookie del docente primero; código de administrador como respaldo ----
@@ -301,7 +304,11 @@ export default function AdminSessionPage() {
     await authFetch(`/api/sessions/${sessionId}/manage`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode || '' },
-      body: JSON.stringify({ title: editTitle, maxParticipants: editMax }),
+      body: JSON.stringify({
+        title: editTitle,
+        maxParticipants: editMax,
+        scheduledAt: localInputToIso(editDate),
+      }),
     })
     toast({ title: 'Ajustes guardados' })
     setSettingsOpen(false)
@@ -312,6 +319,7 @@ export default function AdminSessionPage() {
     if (!live) return
     setEditTitle(live.session.title)
     setEditMax(live.session.maxParticipants)
+    setEditDate(isoToLocalInput(live.session.scheduledAt))
     setSettingsOpen(true)
   }
 
@@ -360,6 +368,14 @@ export default function AdminSessionPage() {
               <span className="flex items-center gap-1">
                 <Users className="h-3.5 w-3.5" /> {live.participants.length}/{live.session.maxParticipants}
               </span>
+              {live.session.scheduledAt && (
+                <span
+                  className="flex items-center gap-1 text-brand-700 font-medium"
+                  title="Fecha programada de la sesión"
+                >
+                  <CalendarDays className="h-3.5 w-3.5" /> {formatDateTimeES(live.session.scheduledAt)}
+                </span>
+              )}
               <span className="flex items-center gap-1 text-viva-700 font-medium">
                 <Wifi className="h-3.5 w-3.5" /> {live.onlineCount} en línea
               </span>
@@ -439,7 +455,7 @@ export default function AdminSessionPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Ajustes de la sesión</DialogTitle>
-            <DialogDescription>Cambia el título o el límite de participantes.</DialogDescription>
+            <DialogDescription>Cambia el título, la fecha o el límite de participantes.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -447,10 +463,24 @@ export default function AdminSessionPage() {
               <Input id="st-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} maxLength={120} className="h-10" />
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="st-date">Fecha de la sesión</Label>
+              <Input
+                id="st-date"
+                type="datetime-local"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                className="h-10"
+              />
+              <p className="text-xs text-muted-foreground">
+                ¿Cuándo se realizará? Déjalo vacío si aún no tiene fecha.
+              </p>
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="st-max">Máximo de participantes</Label>
               <Input id="st-max" type="number" min={2} max={500} value={editMax} onChange={(e) => setEditMax(Number(e.target.value))} className="h-10 w-32" />
             </div>
             <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground space-y-1">
+              <p>Creada el {formatDateES(live.session.createdAt || new Date().toISOString())} (automática).</p>
               <p>Código de acceso de los participantes: <span className="font-bold text-foreground tracking-wider">{live.session.joinCode}</span></p>
               <p className="flex items-center gap-1">
                 Tu código de administrador:

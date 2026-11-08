@@ -124,6 +124,8 @@ export async function POST(
         adminCode: session.adminCode,
         maxParticipants: session.maxParticipants,
         status: session.status as AdminLive['session']['status'],
+        createdAt: session.createdAt.toISOString(),
+        scheduledAt: session.scheduledAt ? session.scheduledAt.toISOString() : null,
       },
       participants: participantViews,
       onlineCount,

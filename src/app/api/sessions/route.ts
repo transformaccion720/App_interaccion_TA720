@@ -20,6 +20,7 @@ export async function GET() {
       status: true,
       maxParticipants: true,
       createdAt: true,
+      scheduledAt: true,
       updatedAt: true,
       _count: { select: { questions: true, participants: true } },
     },
@@ -34,6 +35,14 @@ export async function POST(req: Request) {
     const title = String(body.title || '').trim()
     const description = body.description ? String(body.description).trim() : null
     const maxParticipants = Math.min(500, Math.max(2, Number(body.maxParticipants) || 100))
+    // Fecha programada de la sesión (opcional). null/'' → sin fecha.
+    let scheduledAt: Date | null = null
+    if (body.scheduledAt !== undefined && body.scheduledAt !== null && body.scheduledAt !== '') {
+      scheduledAt = new Date(String(body.scheduledAt))
+      if (Number.isNaN(scheduledAt.getTime())) {
+        return jsonError('La fecha de la sesión no es válida')
+      }
+    }
 
     if (!title) return jsonError('El título es obligatorio')
     if (title.length > 120) return jsonError('El título es demasiado largo')
@@ -66,6 +75,8 @@ export async function POST(req: Request) {
         adminCode,
         maxParticipants,
         status: 'draft',
+        // Nota: createdAt se guarda automáticamente (fecha de creación).
+        ...(scheduledAt ? { scheduledAt } : {}),
         teacherId: teacher?.id || null,
       },
     })
@@ -76,6 +87,8 @@ export async function POST(req: Request) {
       joinCode: session.joinCode,
       adminCode: session.adminCode,
       maxParticipants: session.maxParticipants,
+      createdAt: session.createdAt.toISOString(),
+      scheduledAt: session.scheduledAt ? session.scheduledAt.toISOString() : null,
     })
   } catch {
     return jsonError('Solicitud inválida', 400)

@@ -299,6 +299,8 @@ export interface AdminLive {
     adminCode: string
     maxParticipants: number
     status: SessionStatus
+    createdAt: string | null // fecha de creación (automática)
+    scheduledAt: string | null // fecha programada de la sesión
   }
   participants: ParticipantView[]
   onlineCount: number

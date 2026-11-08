@@ -140,6 +140,28 @@ bun scripts/seed-teacher.ts
 
 El API key se puede revocar al terminar desde **Account → API keys**.
 
+### Actualizar la base de datos en Neon (cuando el código añade campos nuevos)
+
+Si despliegas una versión del código que usa campos nuevos del esquema y la base de
+datos aún no los tiene, el panel mostrará «No se pudieron cargar las sesiones» y
+`/api/health` puede seguir respondiendo `ok:true` (la conexión es buena; falta la
+columna). Ejemplo: la versión de nov 2026 añadió `Session.scheduledAt` (fecha
+programada de la sesión).
+
+Solución — un solo comando con la cadena de Neon (antes de desplegar, o justo
+después; tarda segundos y no borra datos):
+
+```bash
+DATABASE_URL='postgresql://usuario:clave@ep-xxxx-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require' \
+  bash scripts/neon-db-push.sh
+# equivalente: npm run db:push:neon (leyendo DATABASE_URL del entorno)
+```
+
+El script quita comillas accidentales, valida la cadena y usa automáticamente el
+endpoint **directo** de Neon (sin `-pooler`) para el cambio de esquema, que es lo
+recomendado por Neon para DDL. No hace falta repetirlo salvo que el esquema vuelva
+a cambiar.
+
 ## 5. Crear la cuenta del administrador (obligatorio)
 
 El registro público está **deshabilitado**: solo el administrador crea cuentas de

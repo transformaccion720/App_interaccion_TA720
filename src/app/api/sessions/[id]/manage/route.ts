@@ -46,6 +46,8 @@ export async function GET(
       adminCode: session.adminCode,
       maxParticipants: session.maxParticipants,
       status: session.status,
+      createdAt: session.createdAt.toISOString(),
+      scheduledAt: session.scheduledAt ? session.scheduledAt.toISOString() : null,
     },
     questions: questionList,
     participantCount,
@@ -68,6 +70,16 @@ export async function PUT(
     if (typeof body.title === 'string' && body.title.trim()) data.title = body.title.trim()
     if ('description' in body) data.description = body.description ? String(body.description) : null
     if ('status' in body && ['draft', 'live', 'closed'].includes(body.status)) data.status = body.status
+    if ('scheduledAt' in body) {
+      // null/'' borra la fecha; una cadena válida la actualiza.
+      if (body.scheduledAt === null || body.scheduledAt === '') {
+        data.scheduledAt = null
+      } else {
+        const d = new Date(String(body.scheduledAt))
+        if (Number.isNaN(d.getTime())) return jsonError('La fecha de la sesión no es válida')
+        data.scheduledAt = d
+      }
+    }
     if ('maxParticipants' in body) {
       data.maxParticipants = Math.min(500, Math.max(2, Number(body.maxParticipants) || 100))
     }

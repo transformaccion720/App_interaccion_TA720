@@ -34,6 +34,7 @@ model Session {
   adminCode       String       @unique // código de 8 caracteres para el panel docente
   maxParticipants Int          @default(100)
   status          String       @default("draft") // draft | live | closed
+  scheduledAt     DateTime? // fecha programada de la sesión (la define el docente)
   teacherId       String? // docente propietario (opcional: sesiones demo sin dueño)
   teacher         Teacher?     @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   createdAt       DateTime     @default(now())
